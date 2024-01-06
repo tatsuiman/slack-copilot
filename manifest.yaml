@@ -1,0 +1,51 @@
+display_information:
+  name: GPT-private
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: GPT-private
+    always_online: true
+  unfurl_domains:
+    - github.com
+    - notion.so
+    - youtube.com
+    - youtu.be
+oauth_config:
+  scopes:
+    user:
+      - search:read
+    bot:
+      - channels:history
+      - groups:history
+      - mpim:history
+      - im:history
+      - reactions:write
+      - chat:write
+      - users:read
+      - im:write
+      - files:write
+      - files:read
+      - groups:read
+      - channels:read
+      - mpim:read
+      - links:read
+      - links:write
+settings:
+  event_subscriptions:
+    request_url: ${WEBHOOK_URL}
+    bot_events:
+      - link_shared
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - app_home_opened
+  interactivity:
+    is_enabled: true
+    request_url: ${WEBHOOK_URL}
+  org_deploy_enabled: true
+  socket_mode_enabled: false
+  token_rotation_enabled: false

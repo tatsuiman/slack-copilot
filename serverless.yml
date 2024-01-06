@@ -1,0 +1,132 @@
+service: open-slack-ai
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: ap-northeast-1
+  stage: ${opt:stage, 'dev'}
+  logRetentionInDays: 7
+  ecr:
+    images:
+      slack-ai:
+        file: Dockerfile
+        path: ./src
+        platform: linux/amd64
+
+  environment:
+    LOG_LEVEL: 'info'
+    TEST_USER: ${env:TEST_USER}
+    BASE_MODEL: ${env:BASE_MODEL}
+    HEAVY_MODEL: ${env:HEAVY_MODEL}
+    NOTION_SECRET: ${env:NOTION_SECRET}
+    DATABASE_ID: ${env:DATABASE_ID}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    SENTRY_DSN: ${env:SENTRY_DSN}
+    GITHUB_TOKEN: ${env:GITHUB_TOKEN}
+    GITHUB_ORG: ${env:GITHUB_ORG}
+    GOOGLE_CSE_ID: ${env:GOOGLE_CSE_ID}
+    GOOGLE_SEARCH_API_KEY: ${env:GOOGLE_SEARCH_API_KEY}
+    GOOGLE_API_KEY: ${env:GOOGLE_API_KEY}
+    INTELX_API_KEY: ${env:INTELX_API_KEY}
+    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
+    SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    SLACK_USER_TOKEN: ${env:SLACK_USER_TOKEN}
+    AWS_SNS_TOPIC_ARN: { "Ref" : "SlackAITopic" }
+    DB_USERS_TABLE: ${self:service}-${opt:stage, self:provider.stage}-slack-users
+    DB_MESSAGE_TABLE: ${self:service}-${opt:stage, self:provider.stage}-slack-message
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: { "Ref" : "SlackAITopic" }
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:DeleteItem
+      Resource: "*"
+
+functions:
+  slackai-handler:
+    timeout: 30
+    memorySize: 254
+    maximumEventAge: 21600
+    maximumRetryAttempts: 0
+    image:
+      name: slack-ai
+      command: app.handler
+    events:
+      - http:
+          path: /
+          method: post
+          integration: lambda-proxy
+
+  slackai-processor:
+    timeout: 500
+    memorySize: 512
+    maximumEventAge: 21600
+    maximumRetryAttempts: 0
+    image:
+      name: slack-ai
+      command: main.handler
+    events:
+      - sns:
+          arn:
+            Fn::Join:
+              - ':'
+              - - 'arn:aws:sns'
+                - Ref: 'AWS::Region'
+                - Ref: 'AWS::AccountId'
+                - ${self:service}-${opt:stage, self:provider.stage}-slack-message
+          topicName: ${self:service}-${opt:stage, self:provider.stage}-slack-message
+
+resources:
+  Resources:
+    SlackAITopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:service}-${opt:stage, self:provider.stage}-slack-message
+    SlackUsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${opt:stage, self:provider.stage}-slack-users
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+    SlackMessageTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-${opt:stage, self:provider.stage}-slack-message
+        AttributeDefinitions:
+          - AttributeName: doc_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: doc_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+custom:
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 5
+    maxConcurrentRequests: 10
+  prune:
+    automatic: true
+    number: 3
+
+plugins:
+  - serverless-api-gateway-throttling
+  - serverless-prune-plugin

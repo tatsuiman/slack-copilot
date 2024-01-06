@@ -1,0 +1,44 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+    - name: Install serverless and plugins
+      run: |
+        npm install -g serverless
+        serverless plugin install -n serverless-api-gateway-throttling
+        serverless plugin install -n serverless-prune-plugin
+    - name: Install dependencies
+      run: npm install
+    - name: Deploy
+      env:
+        BASE_MODEL: gpt-3.5-turbo-0125
+        HEAVY_MODEL: gpt-4-turbo-preview
+        TEST_USER: ${{ secrets.TEST_USER }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_USER_TOKEN: ${{ secrets.SLACK_USER_TOKEN }}
+        NOTION_SECRET: ${{ secrets.NOTION_SECRET }}
+        DATABASE_ID: ${{ secrets.DATABASE_ID }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+        GITHUB_ORG: ${{ secrets.GIT_ORG }}
+        GOOGLE_CSE_ID: ${{ secrets.GOOGLE_CSE_ID }}
+        GOOGLE_SEARCH_API_KEY: ${{ secrets.GOOGLE_SEARCH_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        INTELX_API_KEY: ${{ secrets.INTELX_API_KEY }}
+      run: serverless deploy
