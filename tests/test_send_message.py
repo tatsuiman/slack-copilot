@@ -98,7 +98,7 @@ def test_thread_message():
     assert response["ok"]
     time.sleep(INTERVAL)
     assistant = get_assistant()
-    assert assistant["tools"] == [{"type": "retrieval"}, {"type": "code_interpreter"}]
+    assert assistant["tools"] == [{"type": "code_interpreter"}, {"type": "retrieval"}]
 
 
 def test_multi_assistant():
