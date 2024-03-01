@@ -25,14 +25,14 @@ from blockkit import (
     Section,
 )
 from tools import add_notion_page, truncate_strings
-from ai import generate_title, cancel_run, CODE_INTERPRETER_EXTS
+from ai import CODE_INTERPRETER_EXTS
+from store import Assistant
 from store import get_thread_info, publish_event
 from slacklib import (
     get_thread_messages,
     get_slack_file_bytes,
     add_reaction,
     delete_message,
-    upload_file,
     get_im_channel_id,
     BOT_USER_ID,
 )
@@ -110,6 +110,36 @@ def generate_unfurl_message():
             Actions(elements=elements),
         ],
     ).build()
+
+
+@app.action("send_api_key")
+def handle_send_api_key_action(ack, body, client):
+    ack()
+    user_id = body["user"]["id"]
+    channel_id = body["channel"]["id"]
+    event_ts = body["container"]["message_ts"]
+    thread_ts = body["container"].get("thread_ts", event_ts)
+    assistant = Assistant(user_id)
+    # TextInputから入力された値を取得
+    block_id = list(body["state"]["values"].keys())[0]
+    text = body["state"]["values"][block_id]["input-api-key"]["value"]
+    set_user({"id": user_id})
+    if text is None or text.find("sk-") == -1:
+        client.chat_postEphemeral(
+            channel=channel_id,
+            user=user_id,
+            text=f"<@{user_id}>APIキーが不正です",
+            thread_ts=thread_ts,
+        )
+    else:
+        client.chat_postEphemeral(
+            channel=channel_id,
+            user=user_id,
+            text=f"<@{user_id}> APIキーを設定しました。",
+            thread_ts=thread_ts,
+        )
+        assistant.set_api_key(api_key=text)
+        assistant.create_assistant()
 
 
 @app.action("ask_button")
@@ -248,6 +278,8 @@ def notion_button(ack: Ack, body: dict, action: dict, respond: Respond):
     channel_id = body["channel"]["id"]
     thread_ts = body["container"]["thread_ts"]
     message_ts = body["container"]["message_ts"]
+    assistant = Assistant(user_id)
+    client = assistant.get_client()
     set_user({"id": user_id})
     try:
         thread_messages = get_thread_messages(channel_id, thread_ts)
@@ -258,7 +290,7 @@ def notion_button(ack: Ack, body: dict, action: dict, respond: Respond):
         respond(message)
         # 最初の1kトークンからタイトルを決める
         truncate_message_content = truncate_strings(message_content, max_tokens=1000)
-        title = generate_title(truncate_message_content)
+        title = client.generate_title(truncate_message_content)
         slack_url = (
             f"https://slack.com/archives/{channel_id}/p{thread_ts.replace('.', '')}"
         )
@@ -294,6 +326,8 @@ def delete_button(ack: Ack, body: dict, action: dict, respond: Respond):
     user_id = body["user"]["id"]
     channel_id = body["channel"]["id"]
     thread_ts = body["container"]["thread_ts"]
+    assistant = Assistant(user_id)
+    client = assistant.get_client()
     set_user({"id": user_id})
     thread_messages = get_thread_messages(channel_id, thread_ts)
     ts = thread_messages[-1]["thread_ts"]
@@ -305,7 +339,7 @@ def delete_button(ack: Ack, body: dict, action: dict, respond: Respond):
             run_id = doc.get("run_id")
             thread_id = doc.get("thread_id")
             logging.info(f"cancelling thread {doc_id}:{run_id}:{thread_id}")
-            res = cancel_run(thread_id, run_id)
+            res = client.cancel_run(thread_id, run_id)
             logging.info(res)
         else:
             logging.error(f"thread_id not found. doc_id:{doc_id}")

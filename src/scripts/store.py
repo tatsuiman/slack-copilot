@@ -4,7 +4,7 @@ import logging
 import boto3
 from pluginbase import PluginBase
 from slacklib import get_user_id
-from ai import create_assistant
+from ai import AssistantAPIClient
 
 # PluginBase インスタンスを作成
 plugin_base = PluginBase(package="plugins")
@@ -37,33 +37,56 @@ class Assistant:
         self.user_id = user_id
         self.assistant_id = None
         self.level = 0
-        self._get_or_create_assistant()
+        self.api_key = None
+        self.client = None
+        self.table = dynamodb.Table(DB_USERS_TABLE)
+        self._get_assistant()
 
-    def _get_or_create_assistant(self):
+    def _get_assistant(self):
         # DynamoDBからAssistant IDを取得
-        table = dynamodb.Table(DB_USERS_TABLE)
-        response = table.get_item(Key={"user_id": self.user_id})
+        response = self.table.get_item(Key={"user_id": self.user_id})
         if "Item" in response:
             # ドキュメントIDが存在する場合はAssistant IDを取得する
             self.assistant_id = response["Item"].get("assistant_id")
             self.level = int(response["Item"].get("level", 0))
+            self.api_key = response["Item"].get("api_key", None)
+            if self.api_key is not None:
+                self.client = AssistantAPIClient(api_key=self.api_key)
             logging.info(f"exists assistant: {self.assistant_id}")
-        else:
-            # 新しいアシスタントを作成する
-            user_info = get_user_id(self.user_id)
-            username = user_info["user"]["real_name"]
-            self.assistant_id = create_assistant(f"{username}'s Assistant")
-            logging.info(f"new assistant: {self.assistant_id}")
-            table.put_item(
-                Item={
-                    "user_id": self.user_id,
-                    "assistant_id": self.assistant_id,
-                    "level": self.level,
-                }
-            )
+
+    def create_assistant(self):
+        user_info = get_user_id(self.user_id)
+        username = user_info["user"]["real_name"]
+        self.client = AssistantAPIClient(api_key=self.api_key)
+        # 新しいアシスタントを作成する
+        self.assistant_id = self.client.create_assistant(f"{username}'s Assistant")
+        logging.info(f"new assistant: {self.assistant_id}")
+        self.table.put_item(
+            Item={
+                "user_id": self.user_id,
+                "assistant_id": self.assistant_id,
+                "level": self.level,
+            }
+        )
+
+    def get_client(self):
+        return self.client
 
     def get_assistant_id(self):
         return self.assistant_id
+
+    def get_api_key(self):
+        return self.api_key
+
+    def set_api_key(self, api_key):
+        self.api_key = api_key
+        table = dynamodb.Table(DB_USERS_TABLE)
+        table.update_item(
+            Key={"user_id": self.user_id},
+            UpdateExpression="set #api_key = :k",
+            ExpressionAttributeNames={"#api_key": "api_key"},
+            ExpressionAttributeValues={":k": api_key},
+        )
 
     def get_level(self):
         return self.level

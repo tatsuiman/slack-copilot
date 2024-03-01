@@ -13,18 +13,7 @@ from slacklib import (
     delete_message,
     BOT_USER_ID,
 )
-from ai import (
-    run_assistant,
-    create_thread,
-    update_assistant,
-    get_ai_thread_messages,
-    create_run,
-    create_message,
-    update_assistant_tools,
-    get_usage,
-    HEAVY_MODEL,
-    BASE_MODEL,
-)
+from ai import HEAVY_MODEL, BASE_MODEL
 from demo import assistant_instructor, MAX_LEVEL
 from datetime import datetime
 from tempfile import mkdtemp
@@ -55,7 +44,7 @@ class ThreadHandler:
         self.files = files[:]
         self.channel_id = channel_id
 
-    def new_thread(self, thread_messages):
+    def new_thread(self, client, thread_messages):
         # canvasがある場合はファイルに書き出してfilesに追加
         canvas_content = get_canvas_content(self.channel_id)
         if len(canvas_content) > 10:
@@ -95,14 +84,14 @@ class ThreadHandler:
                 self.prompt = f"# 指示\n{self.prompt}\n\n# チャット履歴\n{messages}\n"
         self.thread_len = thread_len
         # Thread IDがなければ生成してDynamoDBに格納
-        thread = create_thread()
+        thread = client.create_thread()
         self.thread_id = thread.id
         logging.info(f"create new thread {self.thread_id}")
 
-    def exists_thread(self, doc, max_tokens=31000):
+    def exists_thread(self, client, doc, max_tokens=31000):
         # ドキュメントIDが存在する場合はOpenAI Thread IDを取得する
         self.thread_id = doc.get("thread_id")
-        self.thread_len = len(get_ai_thread_messages(self.thread_id))
+        self.thread_len = len(client.get_ai_thread_messages(self.thread_id))
         self.files.extend(doc.get("files", []))
 
         # 32Kトークンまで切り捨てする
@@ -115,6 +104,7 @@ class ThreadHandler:
 
 
 def handle_assistant(event, process_ts, files, assistant, model):
+    client = assistant.client
     user_id = event.get("user")
     message_text = event.get("text", "")
     channel_id = event.get("channel")
@@ -136,17 +126,19 @@ def handle_assistant(event, process_ts, files, assistant, model):
                 doc.get("model", model) if not model.get("generated", False) else model
             )
             logging.info(f"load existing model: {model}")
-            th.exists_thread(doc)
+            th.exists_thread(client, doc)
         else:
             thread_messages = get_thread_messages(channel_id, thread_ts)
-            th.new_thread(thread_messages)
+            th.new_thread(client, thread_messages)
         # 過去のファイル履歴からツールを復元する
         file_history.extend(th.files)
         # アシスタントを更新する
-        model["tools"] = update_assistant_tools(file_history, tools=model["tools"])
+        model["tools"] = client.update_assistant_tools(
+            file_history, tools=model["tools"]
+        )
         additional_instructions = model.get("additional_instructions", "")
         logging.info(f"update assistant model: {model}")
-        update_assistant(
+        client.update_assistant(
             assistant.get_assistant_id(),
             model=model_name,
             instructions=model["instructions"],
@@ -155,9 +147,9 @@ def handle_assistant(event, process_ts, files, assistant, model):
         if not debug:
             try:
                 # メッセージを作成する
-                create_message(th.thread_id, th.prompt, th.files)
+                client.create_message(th.thread_id, th.prompt, th.files)
                 # Run IDを生成する
-                run_id = create_run(
+                run_id = client.create_run(
                     th.thread_id,
                     assistant.get_assistant_id(),
                     additional_instructions,
@@ -191,7 +183,7 @@ def handle_assistant(event, process_ts, files, assistant, model):
         cost_completion_1k_token = MODEL_COST_PER_1K_TOKENS.get(
             f"{model_name}-completion", 0.03
         )
-        total_cost_today = get_usage(datetime.now().strftime("%Y-%m-%d"))
+        total_cost_today = client.get_usage(datetime.now().strftime("%Y-%m-%d"))
         pre_message = (
             f"`{model_name}`が回答を生成中です。\n"
             "```\n"
@@ -256,7 +248,7 @@ def handle_assistant(event, process_ts, files, assistant, model):
                 blocks=payload["blocks"],
             )
 
-        total_cost = run_assistant(
+        total_cost = client.run_assistant(
             run_id,
             th.thread_id,
             callback=callback,

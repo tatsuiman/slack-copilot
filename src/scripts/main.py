@@ -13,14 +13,22 @@ from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
 from ai import generate_assistant_model, BASE_MODEL
-from handle_plugin import handle_file_plugin, handle_input_plugin, handle_output_plugin
+from handle_plugin import handle_file_plugin, handle_input_plugin
 from handle_assistant import handle_assistant
 from store import Assistant
 from slacklib import (
     add_reaction,
     post_message,
+    update_message,
     get_slack_file_bytes,
     BOT_USER_ID,
+)
+from blockkit import (
+    Input,
+    Message,
+    PlainTextInput,
+    Button,
+    Actions,
 )
 
 # 環境変数からプロジェクト名と関数名を取得
@@ -42,6 +50,29 @@ sentry_sdk.init(
 )
 
 set_tag("botname", BOT_NAME)
+
+
+def generate_api_key_input_message():
+    elements = [
+        Button(
+            action_id="send_api_key",
+            text="送信",
+            value="api-key",
+            style="primary",
+        )
+    ]
+    return Message(
+        blocks=[
+            Input(
+                element=PlainTextInput(
+                    action_id="input-api-key",
+                    placeholder="入力されたAPIキーは他の人からは見えません",
+                ),
+                label="APIキーを入力してください",
+            ),
+            Actions(elements=elements),
+        ],
+    ).build()
 
 
 def handle_file_share(event):
@@ -72,6 +103,15 @@ def handle_message(event):
     res = post_message(channel_id, event_ts, "Typing...")
     process_ts = res["ts"]
     assistant = Assistant(user_id)
+
+    # APIキーが設定されていなければメッセージを送信する
+    if (
+        assistant.api_key.find("sk-") == -1
+        and os.getenv("OPENAI_API_KEY").find("sk-") == -1
+    ):
+        payload = generate_api_key_input_message()
+        update_message(channel_id, process_ts, blocks=payload["blocks"])
+        return
 
     # プロンプトからアシスタントの設定を変更
     model = generate_assistant_model(event)
