@@ -37,8 +37,8 @@ class Assistant:
         self.user_id = user_id
         self.assistant_id = None
         self.level = 0
-        self.api_key = None
         self.client = None
+        self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.table = dynamodb.Table(DB_USERS_TABLE)
         self._get_assistant()
 
@@ -54,10 +54,11 @@ class Assistant:
                 self.client = AssistantAPIClient(api_key=self.api_key)
             logging.info(f"exists assistant: {self.assistant_id}")
 
-    def create_assistant(self):
+    def create_assistant(self, api_key):
         user_info = get_user_id(self.user_id)
         username = user_info["user"]["real_name"]
-        self.client = AssistantAPIClient(api_key=self.api_key)
+        self.api_key = api_key
+        self.client = AssistantAPIClient(api_key=api_key)
         # 新しいアシスタントを作成する
         self.assistant_id = self.client.create_assistant(f"{username}'s Assistant")
         logging.info(f"new assistant: {self.assistant_id}")
@@ -66,6 +67,7 @@ class Assistant:
                 "user_id": self.user_id,
                 "assistant_id": self.assistant_id,
                 "level": self.level,
+                "api_key": self.api_key,
             }
         )
 
@@ -77,16 +79,6 @@ class Assistant:
 
     def get_api_key(self):
         return self.api_key
-
-    def set_api_key(self, api_key):
-        self.api_key = api_key
-        table = dynamodb.Table(DB_USERS_TABLE)
-        table.update_item(
-            Key={"user_id": self.user_id},
-            UpdateExpression="set #api_key = :k",
-            ExpressionAttributeNames={"#api_key": "api_key"},
-            ExpressionAttributeValues={":k": api_key},
-        )
 
     def get_level(self):
         return self.level

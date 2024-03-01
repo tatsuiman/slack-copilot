@@ -122,9 +122,9 @@ def handle_send_api_key_action(ack, body, client):
     assistant = Assistant(user_id)
     # TextInputから入力された値を取得
     block_id = list(body["state"]["values"].keys())[0]
-    text = body["state"]["values"][block_id]["input-api-key"]["value"]
+    api_key = body["state"]["values"][block_id]["input-api-key"]["value"]
     set_user({"id": user_id})
-    if text is None or text.find("sk-") == -1:
+    if api_key is None or api_key.find("sk-") == -1:
         client.chat_postEphemeral(
             channel=channel_id,
             user=user_id,
@@ -138,8 +138,7 @@ def handle_send_api_key_action(ack, body, client):
             text=f"<@{user_id}> APIキーを設定しました。",
             thread_ts=thread_ts,
         )
-        assistant.set_api_key(api_key=text)
-        assistant.create_assistant()
+        assistant.create_assistant(api_key=api_key)
 
 
 @app.action("ask_button")

@@ -12,7 +12,6 @@ from tempfile import mkdtemp
 from pluginbase import PluginBase
 from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
-from langchain.agents.openai_assistant import OpenAIAssistantRunnable
 from tools import truncate_strings, calculate_token_size, browser_open
 from langchain_community.callbacks.openai_info import (
     MODEL_COST_PER_1K_TOKENS,
@@ -115,7 +114,7 @@ def generate_assistant_model(event):
 
 
 class AssistantAPIClient:
-    def __init__(self, api_key=os.getenv("OPENAI_API_KEY")) -> None:
+    def __init__(self, api_key) -> None:
         self.api_key = api_key
         self.client = OpenAI(timeout=20.0, max_retries=3, api_key=self.api_key)
 
@@ -128,14 +127,13 @@ class AssistantAPIClient:
         )
 
     def create_assistant(self, name, instructions=""):
-        interpreter_assistant = OpenAIAssistantRunnable.create_assistant(
+        assistant = self.client.beta.assistants.create(
             name=name,
             instructions=instructions,
             tools=[{"type": "retrieval"}],
             model=BASE_MODEL,
-            api_key=self.api_key,
         )
-        return interpreter_assistant.assistant_id
+        return assistant.id
 
     def get_assistant_filenames(self, assistant_id):
         filenames = []

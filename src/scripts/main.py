@@ -105,10 +105,7 @@ def handle_message(event):
     assistant = Assistant(user_id)
 
     # APIキーが設定されていなければメッセージを送信する
-    if (
-        assistant.api_key.find("sk-") == -1
-        and os.getenv("OPENAI_API_KEY").find("sk-") == -1
-    ):
+    if assistant.api_key.find("sk-") == -1:
         payload = generate_api_key_input_message()
         update_message(channel_id, process_ts, blocks=payload["blocks"])
         return
