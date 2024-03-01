@@ -103,8 +103,8 @@ resources:
           - AttributeName: user_id
             KeyType: HASH
         ProvisionedThroughput:
-          ReadCapacityUnits: 5
-          WriteCapacityUnits: 5
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
     SlackMessageTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -116,8 +116,8 @@ resources:
           - AttributeName: doc_id
             KeyType: HASH
         ProvisionedThroughput:
-          ReadCapacityUnits: 5
-          WriteCapacityUnits: 5
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
 custom:
   apiGatewayThrottling:

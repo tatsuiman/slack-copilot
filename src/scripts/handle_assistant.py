@@ -103,7 +103,7 @@ class ThreadHandler:
         # ドキュメントIDが存在する場合はOpenAI Thread IDを取得する
         self.thread_id = doc.get("thread_id")
         self.thread_len = len(get_ai_thread_messages(self.thread_id))
-        self.files = doc.get("files", [])
+        self.files.extend(doc.get("files", []))
 
         # 32Kトークンまで切り捨てする
         self.prompt, _token_size, _truncated_token_size = truncate_token_size(
