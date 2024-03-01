@@ -470,6 +470,19 @@ def process_message(messages, callback):
                                 citation_links[citation] = permalink
                             else:
                                 permalink = citation_links[citation]
+
+                            # トークンサイズが大きすぎるとエラーになるので、1800トークンを超える場合はファイルに保存する
+                            output_token = calculate_token_size(message_text)
+                            output_token_limit = 1800
+                            if len(output_token) > output_token_limit:
+                                message_text = truncate_strings(
+                                    message_text, max_tokens=output_token_limit
+                                )
+                                message_text += "...\nメッセージサイズが大きすぎるため、内容の続きはファイルに出力しました"
+                                message_file = os.path.join(mkdtemp(), "message.txt")
+                                with open(message_file, "w") as f:
+                                    f.write(message_text)
+                                files.append(message_file)
                             # メッセージテキスト内の引用をリンクに置き換えます
                             message_text = message_text.replace(
                                 annotation.text,
