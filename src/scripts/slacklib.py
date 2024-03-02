@@ -90,24 +90,6 @@ def add_reaction(name, channel_id, message_ts):
         logging.info(f"Failed to add {name} reaction: {str(e)}")
 
 
-def extract_msg_file(msg):
-    messages = ""
-    files = []
-    # ファイルタイプがテキストならダウンロードする
-    for file in msg.get("files", []):
-        url_private = file["url_private_download"]
-        filetype = file["filetype"]
-        filename = file["name"]
-        file_data = get_slack_file_bytes(url_private)
-        if file["mimetype"] == "text/plain":
-            messages += f"{file_data.decode()}\n"
-        download_file = os.path.join(mkdtemp(), filename)
-        files.append(download_file)
-        with open(download_file, "wb") as f:
-            f.write(file_data)
-    return messages, files
-
-
 def get_thread_messages(channel_id, thread_ts):
     # すべてのメッセージを保持するリスト
     all_messages = []

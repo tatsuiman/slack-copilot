@@ -157,7 +157,7 @@ def handle_assistant(event, process_ts, files, assistant, model):
             except Exception as e:
                 logging.exception(e)
                 # 連続で質問されている場合は失敗するので処理を終了させる
-                message = "現在回答を生成中です。しばらく待ってからメッセージを送信してください。"
+                message = f"回答の生成でエラーが発生しました。{e}"
                 update_message(channel_id, process_ts, text=message)
                 return
         else:

@@ -8,6 +8,7 @@ import sentry_sdk
 from datetime import datetime
 from tempfile import mkdtemp
 from sentry_sdk import set_user, set_tag
+from urllib.parse import unquote
 from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
@@ -80,7 +81,7 @@ def handle_file_share(event):
     # アップロードされたファイルを取得
     for file in event.get("files", []):
         url_private = file["url_private_download"]
-        filename = datetime.now().strftime("%Y%m%d_") + file["name"]
+        filename = datetime.now().strftime("%Y%m%d_") + unquote(file["name"])
         file_path = os.path.join(mkdtemp(), filename)
         file_data = get_slack_file_bytes(url_private)
         with open(file_path, "wb") as f:
