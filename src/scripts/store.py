@@ -49,8 +49,8 @@ class Assistant:
             # ドキュメントIDが存在する場合はAssistant IDを取得する
             self.assistant_id = response["Item"].get("assistant_id")
             self.level = int(response["Item"].get("level", 0))
-            self.api_key = response["Item"].get("api_key", None)
-            if self.api_key is not None:
+            self.api_key = response["Item"].get("api_key", self.api_key)
+            if len(self.api_key) > 5:
                 self.client = AssistantAPIClient(api_key=self.api_key)
             logging.info(f"exists assistant: {self.assistant_id}")
 
