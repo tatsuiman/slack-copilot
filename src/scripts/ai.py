@@ -179,14 +179,16 @@ class SlackAssistantEventHandler(AssistantEventHandler):
     # 例外が発生したときの処理を行います。
     @override
     def on_exception(self, exception: Exception) -> None:
-        self.message_callback.create()
-        self.message_callback.done(f"Error: {exception}")
+        self.message_callback.update(f"Error: {exception}")
 
     # イベントが発生したときの処理を行います。
     @override
     def on_event(self, event: AssistantStreamEvent) -> None:
         if event.event == "thread.run.completed":
             self.message_callback.end()
+
+        if event.event == "thread.run.failed":
+            self.message_callback.update(event.data.last_error.message)
 
         if event.event == "thread.run.created":
             from store import update_run_id
