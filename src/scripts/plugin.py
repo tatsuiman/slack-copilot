@@ -4,21 +4,18 @@ import traceback
 import sentry_sdk
 from slacklib import (
     add_reaction,
-    post_message,
     update_message,
 )
 from store import file_plugin_source, input_plugin_source, output_plugin_source
-from blockkit import Actions, Button, Divider, Message, Section
 
 # 無効にするPluginリスt
 DISABLE_PLUGINS = os.getenv("DISABLE_PLUGINS", "").split(":")
 
 
-def handle_output_plugin(channel_id, thread_ts, completion="no message", files=[]):
-    if len(completion.strip()) == 0 and len(files) == 0:
+def handle_output_plugin(completion):
+    if len(completion.strip()) == 0:
         return
-    if len(completion.strip()) == 0 and len(files) > 0:
-        return post_message(channel_id, thread_ts, files=files)
+    files = []
     # プラグインをロードし、関数を呼び出す
     for plugin_name in output_plugin_source.list_plugins():
         if plugin_name in DISABLE_PLUGINS:
@@ -33,42 +30,7 @@ def handle_output_plugin(channel_id, thread_ts, completion="no message", files=[
                 files.extend(codeblock_files)
         except Exception as e:
             sentry_sdk.capture_exception(e)
-    elements = [
-        Button(
-            action_id="notion_button",
-            text=":memo: Notionページ作成",
-            value="notion",
-            style="primary",
-        ),
-        Button(
-            action_id="unresolve_button",
-            text=":face_with_monocle: 問題が未解決です",
-            value="unresolve",
-        ),
-        Button(
-            action_id="contradiction_button",
-            text=":face_with_one_eyebrow_raised: 潜在的な問題や矛盾点を探す",
-            value="contradiction",
-        ),
-        Button(
-            action_id="search_button",
-            text=":slack: 関連する内容を探す",
-            value="search",
-        ),
-        Button(
-            action_id="google_search_button",
-            text=":mag: googleで検索",
-            value="google_search",
-        ),
-    ]
-    payload = Message(
-        blocks=[
-            Section(text=completion),
-            Divider(),
-            Actions(elements=elements),
-        ]
-    ).build()
-    return post_message(channel_id, thread_ts, blocks=payload["blocks"], files=files)
+    return files
 
 
 def handle_input_plugin(event, process_ts):

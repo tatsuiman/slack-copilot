@@ -8,6 +8,16 @@ rule open_notion_url
         ($url and $scheme and $domain)
 }
 
+rule create_notion_page
+{
+    strings:
+        $keyword1 = /notion/i
+        $keyword2 = "作成"
+        $keyword3 = "まとめて"
+    condition:
+        ($keyword1 and $keyword2) or ($keyword1 and $keyword3)
+}
+
 rule open_slack_url
 {
     strings:

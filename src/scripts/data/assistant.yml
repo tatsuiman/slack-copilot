@@ -136,6 +136,27 @@ open_youtube_url:
           type: object
       type: function
 
+create_notion_page:
+  name: Create Notion Page
+  instructions: |
+    Notionにまとめる必要がある場合はページを作成します。
+  tools:
+    - function:
+        description: Create Notion Page
+        name: create_notion_page
+        parameters:
+          properties:
+            title:
+              description: page title
+              type: string
+            content:
+              description: markdown text
+              type: string
+          required:
+            - url
+          type: object
+      type: function
+
 open_notion_url:
   name: Open Notion URL
   instructions: |

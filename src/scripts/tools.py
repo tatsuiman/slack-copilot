@@ -5,14 +5,6 @@ import time
 import re
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from notion.util import (
-    create_notion_page,
-    markdown_to_notion_blocks,
-    append_blocks_to_page,
-)
-
-# NotionデータベースID
-DATABASE_ID = os.getenv("DATABASE_ID")
 
 
 def truncate_strings(text, max_tokens):
@@ -28,20 +20,12 @@ def calculate_token_size(text):
     return len(encoding.encode(text, allowed_special="all"))
 
 
-def add_notion_page(title, text, slack_url):
-    """Add Notion Page"""
-    # 新しいページを作成
-    properties = {"Slack URL": {"url": slack_url}}
-    resp = create_notion_page(DATABASE_ID, title, properties)
-    try:
-        # MarkdownをNotionブロックに変換
-        blocks = markdown_to_notion_blocks(text)
-        # Notionページにブロックを追加
-        append_blocks_to_page(resp["id"], blocks)
-        url = resp["url"]
-        return f"\nNotionページを作成しました。\n\n間違いがあれば修正し、ページは適当な場所に移動してください。\n{title}\n{url}"
-    except:
-        return f"\nNotionページの追加に失敗しました。{resp}"
+def truncate_token_size(text, max_tokens):
+    origin_token_size = calculate_token_size(text)
+    truncated_text = truncate_strings(text, max_tokens)
+    token_size = calculate_token_size(truncated_text)
+    truncated_token_size = origin_token_size - token_size
+    return truncated_text, token_size, truncated_token_size
 
 
 def browser_open(url, screenshot_png=None):

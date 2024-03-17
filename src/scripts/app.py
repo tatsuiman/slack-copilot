@@ -6,35 +6,28 @@ import plyara
 import yaml
 import logging
 import sentry_sdk
-from tempfile import mkdtemp
 from sentry_sdk import set_user, set_tag
 from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 from slack_sdk import WebClient
 from slack_bolt import App, Ack, BoltContext, Respond
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.context import BoltContext
-from blockkit import (
-    Divider,
-    Input,
-    Message,
-    PlainTextInput,
-    Button,
-    Actions,
-    Home,
-    Header,
-    Section,
-)
-from tools import add_notion_page, truncate_strings
+from ui import generate_unfurl_message
 from ai import CODE_INTERPRETER_EXTS
 from store import Assistant
 from store import get_thread_info, publish_event
 from slacklib import (
     get_thread_messages,
-    get_slack_file_bytes,
     add_reaction,
     delete_message,
     get_im_channel_id,
     BOT_USER_ID,
+)
+from blockkit import (
+    Divider,
+    Home,
+    Header,
+    Section,
 )
 
 # 環境変数からプロジェクト名と関数名を取得
@@ -87,29 +80,6 @@ def generate_auto_reply_message(event):
         if len(reply_message) > 0:
             return reply_message
     return None
-
-
-def generate_unfurl_message():
-    elements = [
-        Button(
-            action_id="ask_button",
-            text="送信",
-            value="ask",
-            style="primary",
-        )
-    ]
-    return Message(
-        blocks=[
-            Input(
-                element=PlainTextInput(
-                    action_id="ask-action",
-                    placeholder="質問や回答内容が他の人に見られる心配はありません",
-                ),
-                label="リンクの内容についてAIに質問してみましょう",
-            ),
-            Actions(elements=elements),
-        ],
-    ).build()
 
 
 @app.action("send_api_key")
@@ -277,35 +247,17 @@ def notion_button(ack: Ack, body: dict, action: dict, respond: Respond):
     channel_id = body["channel"]["id"]
     thread_ts = body["container"]["thread_ts"]
     message_ts = body["container"]["message_ts"]
-    assistant = Assistant(user_id)
-    client = assistant.get_client()
+    add_reaction("eyes", channel_id, message_ts)
     set_user({"id": user_id})
-    try:
-        thread_messages = get_thread_messages(channel_id, thread_ts)
-        if len(thread_messages) == 0:
-            return
-        message_content = thread_messages[-1].get("text")
-        message = "Notionページを作成しています。\nしばらくお待ちください..."
-        respond(message)
-        # 最初の1kトークンからタイトルを決める
-        truncate_message_content = truncate_strings(message_content, max_tokens=1000)
-        title = client.generate_title(truncate_message_content)
-        slack_url = (
-            f"https://slack.com/archives/{channel_id}/p{thread_ts.replace('.', '')}"
-        )
-        # ファイルタイプがテキストならダウンロードする
-        for file in thread_messages[-1].get("files", []):
-            if file["mimetype"] != "text/plain":
-                continue
-            url_private = file["url_private_download"]
-            file_data = get_slack_file_bytes(url_private)
-            message_content += f"{file_data.decode()}\n"
-
-        # メッセージ内容のNotionページを作成
-        result = add_notion_page(title, message_content, slack_url)
-        respond(result)
-    except Exception as e:
-        respond(f"Notionページの作成に失敗しました。{e}")
+    event = {
+        "user": user_id,
+        "type": "message",
+        "channel": channel_id,
+        "thread_ts": thread_ts,
+        "text": "会話の内容をNotionにまとめてください。",
+        "ts": message_ts,
+    }
+    publish_event(event)
 
 
 @app.action("delete_button")

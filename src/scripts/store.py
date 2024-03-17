@@ -110,6 +110,15 @@ def update_thread_info(doc_id, item):
     table.put_item(Item=item)
 
 
+def update_run_id(doc_id, run_id):
+    table = dynamodb.Table(DB_MESSAGE_TABLE)
+    table.update_item(
+        Key={"doc_id": doc_id},
+        UpdateExpression="set run_id = :r",
+        ExpressionAttributeValues={":r": run_id},
+    )
+
+
 def publish_event(event):
     # イベントをSNSトピックに送信
     event_data = json.dumps({"default": json.dumps(event)})

@@ -5,33 +5,26 @@ import json
 import logging
 import traceback
 import sentry_sdk
+from tempfile import mkdtemp
+from datetime import datetime
+from ai import HEAVY_MODEL, BASE_MODEL
+from demo import assistant_instructor, MAX_LEVEL
+from tools import truncate_token_size
+from ui import generate_completion_block
+from callback import StepCallback, MessageCallback
+from store import get_thread_info, update_thread_info
 from slacklib import (
     get_thread_messages,
     add_reaction,
+    post_message,
     update_message,
-    get_canvas_content,
     delete_message,
+    get_canvas_content,
     BOT_USER_ID,
 )
-from ai import HEAVY_MODEL, BASE_MODEL
-from demo import assistant_instructor, MAX_LEVEL
-from datetime import datetime
-from tempfile import mkdtemp
-from tools import truncate_strings, calculate_token_size
-from blockkit import Actions, Button, Divider, Message, Section
-from handle_plugin import handle_output_plugin
 from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS
-from store import get_thread_info, update_thread_info
 
 TEST_USER = os.getenv("TEST_USER")
-
-
-def truncate_token_size(text, max_tokens):
-    origin_token_size = calculate_token_size(text)
-    truncated_text = truncate_strings(text, max_tokens)
-    token_size = calculate_token_size(truncated_text)
-    truncated_token_size = origin_token_size - token_size
-    return truncated_text, token_size, truncated_token_size
 
 
 class ThreadHandler:
@@ -103,7 +96,7 @@ class ThreadHandler:
         logging.info(f"exists thread {self.thread_id}")
 
 
-def handle_assistant(event, process_ts, files, assistant, model):
+def handle_thread(event, process_ts, files, assistant, model):
     client = assistant.client
     user_id = event.get("user")
     message_text = event.get("text", "")
@@ -144,30 +137,23 @@ def handle_assistant(event, process_ts, files, assistant, model):
             instructions=model["instructions"],
             tools=model["tools"],
         )
-        if not debug:
-            try:
+        try:
+            if not debug:
                 # メッセージを作成する
                 client.create_message(th.thread_id, th.prompt, th.files)
-                # Run IDを生成する
-                run_id = client.create_run(
-                    th.thread_id,
-                    assistant.get_assistant_id(),
-                    additional_instructions,
-                )
-            except Exception as e:
-                logging.exception(e)
-                # 連続で質問されている場合は失敗するので処理を終了させる
-                message = f"回答の生成でエラーが発生しました。{e}"
-                update_message(channel_id, process_ts, text=message)
-                return
-        else:
-            run_id = "debug_id"
+        except Exception as e:
+            logging.exception(e)
+            # 連続で質問されている場合は失敗するので処理を終了させる
+            message = f"回答の生成でエラーが発生しました。{e}"
+            post_message(channel_id, thread_ts, text=message)
+            return
+
         # スレッドの状態を更新する
         update_thread_info(
             doc_id=doc_id,
             item={
                 "thread_id": th.thread_id,
-                "run_id": run_id,
+                "run_id": "",
                 "model": model,
                 "files": file_history,
                 "updated_at": int(time.time()),
@@ -194,67 +180,17 @@ def handle_assistant(event, process_ts, files, assistant, model):
             "```\n"
             f"有効なアクション: {', '.join(functions)}\n"
         )
+        blocks = generate_completion_block(pre_message)
+        update_message(channel_id, process_ts, blocks=blocks)
+        add_reaction("thinking_face", channel_id, event_ts)
+
         if debug:
-            pre_message += (
-                f"指示:\n```{model['instructions']}```\n"
-                f"追加指示:\n```{additional_instructions}```\n"
-                f"ツール:\n```{json.dumps(model['tools'], indent=4)}```\n"
-            )
+            return
 
-        elements = [
-            Button(
-                action_id="stop_button",
-                text=":black_square_for_stop: 停止",
-                value="stop",
-            )
-        ]
-        payload = Message(
-            blocks=[
-                Section(text=pre_message),
-                Divider(),
-                Actions(elements=elements),
-            ]
-        ).build()
-        res = update_message(channel_id, process_ts, blocks=payload["blocks"])
-        if res:
-            add_reaction("thinking_face", channel_id, event_ts)
-
-        # Assistant APIを実行
-        def callback(completion="no message", files=[]):
-            if level < MAX_LEVEL:
-                completion = f":beginner: 練習モードで回答しています。\nすべての進捗を達成すると `{HEAVY_MODEL}` が利用できるようになります。\n\n{completion}"
-            return handle_output_plugin(channel_id, thread_ts, completion, files)
-
-        def log_callback(log_messages, progress=0):
-            markdown_blocks = [Section(text=md) for md in log_messages]
-            progress = progress % 10
-            progress_bar = (
-                ":hourglass_flowing_sand:" * progress if progress > 0 else ":hourglass:"
-            )
-            payload = Message(
-                blocks=[
-                    Section(text=pre_message),
-                    Divider(),
-                    *markdown_blocks,
-                    Divider(),
-                    Section(text=progress_bar),
-                    Divider(),
-                    Actions(elements=elements),
-                ]
-            ).build()
-            update_message(
-                channel_id,
-                process_ts,
-                blocks=payload["blocks"],
-            )
-
-        total_cost = client.run_assistant(
-            run_id,
-            th.thread_id,
-            callback=callback,
-            log_callback=log_callback,
-            model=model_name,
-            debug=debug,
+        step_callback = StepCallback(channel_id, thread_ts)
+        message_callback = MessageCallback(channel_id, thread_ts)
+        client.run_assistant(
+            th, assistant, message_callback, step_callback, additional_instructions
         )
         time.sleep(1)
         # ユーザレベルを上げる
@@ -267,9 +203,8 @@ def handle_assistant(event, process_ts, files, assistant, model):
             level,
         )
         assistant.update_level(next_level)
-        if not debug:
-            delete_message(channel_id, process_ts)
+        delete_message(channel_id, process_ts)
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logging.error(traceback.format_exc())
-        handle_output_plugin(channel_id, thread_ts, traceback.format_exc(), files=[])
+        post_message(channel_id, thread_ts, text=traceback.format_exc(), files=[])
