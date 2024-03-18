@@ -1,13 +1,18 @@
 display_information:
-  name: GPT-private
+  name: GPT
 features:
   app_home:
     home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: GPT-private
+    display_name: GPT
     always_online: true
+  shortcuts:
+    - name: アシスタントの変更
+      type: global
+      callback_id: update_assistant
+      description: update assistant
   unfurl_domains:
     - github.com
     - notion.so
@@ -16,23 +21,30 @@ features:
 oauth_config:
   scopes:
     user:
+      - channels:history
+      - files:read
+      - groups:history
       - search:read
+      - users:read
     bot:
       - channels:history
-      - groups:history
-      - mpim:history
-      - im:history
-      - reactions:write
-      - chat:write
-      - users:read
-      - im:write
-      - files:write
-      - files:read
-      - groups:read
       - channels:read
+      - chat:write
+      - files:read
+      - files:write
+      - groups:history
+      - groups:read
+      - im:history
+      - im:read
+      - im:write
+      - mpim:history
       - mpim:read
+      - reactions:read
+      - reactions:write
+      - users:read
       - links:read
       - links:write
+      - commands
 settings:
   event_subscriptions:
     request_url: ${WEBHOOK_URL}
@@ -42,6 +54,7 @@ settings:
       - message.groups
       - message.im
       - message.mpim
+      - reaction_added
       - app_home_opened
   interactivity:
     is_enabled: true

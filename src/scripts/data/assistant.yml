@@ -1,9 +1,10 @@
-knowledge_search:
-  name: 検索アシスタント
+internal_search:
+  name: 社内ナレッジ検索アシスタント
   instructions: |
     あなたは指示された内容に関連したキーワードで社内ツールで検索を行い、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
     回答にはURLなどの情報元の一覧も含めます。
   tools:
+    - type: code_interpreter
     - function:
         description: Search Slack Message
         name: slack_search
@@ -52,95 +53,66 @@ knowledge_search:
             - keyword
           type: object
       type: function
-
-python_coder:
-  name: pythonコーディングアシスタント
-  instructions: |
-    あなたは指示されたpythonコードを生成して実行し、その結果を検証し日本語で回答するアシスタントです。
-  tools:
-    - type: code_interpreter
-
-pptx_writer:
-  name: パワーポイントライター
-  instructions: |
-    あなたは指示された内容をパワーポイントファイルに出力します
-  tools:
-    - type: code_interpreter
-
-google_search:
-  name: Google検索アシスタント
-  instructions: |
-    あなたは指示された内容に関連したキーワードでGoogle検索を行い、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
-    回答にはURLなどの情報元の一覧も含めます。
-  tools:
     - function:
-        description: Search Google
-        name: google_search
-        parameters:
-          properties:
-            keyword:
-              description: Short single keyword without line breaks
-              type: string
-          required:
-            - keyword
-          type: object
-      type: function
-
-fact_checker:
-  name: Googleファクトチェッカー
-  instructions: |
-    あなたは指示された内容のファクトチェックを英語のキーワードに置き換えて検索し日本語で回答します。
-  tools:
-    - function:
-        description: Google Fact Checker API
-        name: fact_checker
-        parameters:
-          properties:
-            query:
-              description: Enter your search query here. English only
-              type: string
-          required:
-            - query
-          type: object
-      type: function
-
-open_url:
-  name: Open URL
-  tools:
-    - function:
-        description: Open Browser Url
-        name: open_url
+        description: Open Slack URL
+        name: open_slack_url
         parameters:
           properties:
             url:
-              description: url string
+              description: slack url string
               type: string
           required:
             - url
           type: object
       type: function
-
-open_youtube_url:
-  name: Open Youtube URL
-  tools:
     - function:
-        description: Open Youtube Url
-        name: open_youtube_url
+        description: Open Slack Canvas URL
+        name: open_slack_canvas_url
         parameters:
           properties:
             url:
-              description: youtube url string
+              description: slack canvas url string
               type: string
           required:
             - url
           type: object
       type: function
-
-create_notion_page:
-  name: Create Notion Page
-  instructions: |
-    Notionにまとめる必要がある場合はページを作成します。
-  tools:
+    - function:
+        description: Open Github URL
+        name: open_github_url
+        parameters:
+          properties:
+            url:
+              description: notion url string
+              type: string
+          required:
+            - url
+          type: object
+      type: function
+    - function:
+        description: Open Notion URL
+        name: open_notion_url
+        parameters:
+          properties:
+            url:
+              description: notion url string
+              type: string
+          required:
+            - url
+          type: object
+      type: function
+    - function:
+        description: Open Github discussion URL
+        name: get_github_discussion
+        parameters:
+          properties:
+            github_url:
+              description: github repository url
+              type: string
+          required:
+            - github_url
+          type: object
+      type: function
     - function:
         description: Create Notion Page
         name: create_notion_page
@@ -157,224 +129,64 @@ create_notion_page:
           type: object
       type: function
 
-open_notion_url:
-  name: Open Notion URL
-  instructions: |
-    質問内容に関連のありそうなSlackやGithubのURLがある場合は内容も確認してから回答する必要があります。
-  tools:
-    - function:
-        description: Open Github Url
-        name: open_github_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Notion Url
-        name: open_notion_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Slack Url
-        name: open_slack_url
-        parameters:
-          properties:
-            url:
-              description: slack url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
 
-open_github_url:
-  name: Open Github URL
+internet_search:
+  name: インターネット検索アシスタント
   instructions: |
-    質問内容に関連のありそうなNotionやSlackのURLがある場合は内容も確認してから回答する必要があります。
+    あなたは指示された内容に関連したキーワードで検索を行い、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
+    回答にはURLなどの情報元の一覧も含めます。
   tools:
+    - type: code_interpreter
     - function:
-        description: Open Github Url
-        name: open_github_url
+        description: Search Google
+        name: google_search
         parameters:
           properties:
-            url:
-              description: notion url string
+            keyword:
+              description: Short single keyword without line breaks
               type: string
           required:
-            - url
+            - keyword
           type: object
       type: function
-    - function:
-        description: Open Notion Url
-        name: open_notion_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Slack Url
-        name: open_slack_url
-        parameters:
-          properties:
-            url:
-              description: slack url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-
-open_slack_url:
-  name: Open Slack URL
-  instructions: |
-    質問内容に関連のありそうなNotionやGithubのURLがある場合は内容も確認してから回答する必要があります。
-  tools:
-    - function:
-        description: Open Slack Url
-        name: open_slack_url
-        parameters:
-          properties:
-            url:
-              description: slack url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Slack Canvas Url
-        name: open_slack_canvas_url
-        parameters:
-          properties:
-            url:
-              description: slack canvas url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Notion Url
-        name: open_notion_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Github Url
-        name: open_github_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-
-open_slack_canvas_url:
-  name: Open Slack Canvas URL
-  instructions: |
-    質問内容に関連のありそうなNotionやGithub,SlackのURLがある場合は内容も確認してから回答する必要があります。
-  tools:
-    - function:
-        description: Open Slack Canvas Url
-        name: open_slack_canvas_url
-        parameters:
-          properties:
-            url:
-              description: slack canvas url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Slack Url
-        name: open_slack_url
-        parameters:
-          properties:
-            url:
-              description: slack url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Notion Url
-        name: open_notion_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-    - function:
-        description: Open Github Url
-        name: open_github_url
-        parameters:
-          properties:
-            url:
-              description: notion url string
-              type: string
-          required:
-            - url
-          type: object
-      type: function
-
-get_github_discussion:
-  name: Github ディスカッション
-  instructions: |
-    あなたはGithubリポジトリのディスカッションを取得し、指示された内容について日本語で回答します。
-    回答には必ずディスカッションのURLを含めてください。
-  tools:
     - function:
         description: Google Fact Checker API
-        name: get_github_discussion
+        name: fact_checker
         parameters:
           properties:
-            github_url:
-              description: github repository url
+            query:
+              description: Enter your search query here. English only
               type: string
           required:
-            - github_url
+            - query
           type: object
       type: function
-
-intelx_search:
-  name: IntelX検索アシスタント
-  instructions: |
-    あなたは調査対象のキーワードを抽出しintelligence x を使って調査します。
-  tools:
     - function:
-        description: Intelligence X Search API
+        description: Open Browser URL
+        name: open_url
+        parameters:
+          properties:
+            url:
+              description: url string
+              type: string
+          required:
+            - url
+          type: object
+      type: function
+    - function:
+        description: Open Youtube URL
+        name: open_youtube_url
+        parameters:
+          properties:
+            url:
+              description: youtube url string
+              type: string
+          required:
+            - url
+          type: object
+      type: function
+    - function:
+        description: Intelligence X Thread Search API
         name: intelx_search
         parameters:
           properties:
@@ -385,21 +197,3 @@ intelx_search:
             - query
           type: object
       type: function
-
-public_data:
-  name: パブリックデータ
-  additional_instructions: |
-    あなたは指示された内容に関連したパブリックデータ(public-datasets.txt)を検索し、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
-    回答にはURLなどの情報元の一覧も含めます。
-  urls:
-    - url: https://raw.githubusercontent.com/awesomedata/awesome-public-datasets/master/README.rst
-      file: public-datasets.txt
-
-public_api:
-  name: パブリックAPI
-  additional_instructions: |
-    あなたは指示された内容に関連したパブリックAPI(pulic-apis.txt)を検索し、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
-    回答にはURLなどの情報元の一覧も含めます。
-  urls:
-    - url: https://raw.githubusercontent.com/public-apis/public-apis/master/README.md
-      file: public-apis.txt

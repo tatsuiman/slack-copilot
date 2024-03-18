@@ -8,8 +8,8 @@ import sentry_sdk
 from tempfile import mkdtemp
 from datetime import datetime
 from ai import HEAVY_MODEL, BASE_MODEL
-from demo import assistant_instructor, MAX_LEVEL
 from tools import truncate_token_size
+from ux import assistant_instructor, MAX_LEVEL
 from ui import generate_completion_block
 from callback import StepCallback, MessageCallback
 from store import get_thread_info, update_thread_info
@@ -115,10 +115,6 @@ def handle_thread(event, process_ts, files, assistant, model):
         doc_id = f'{BOT_USER_ID}_run_{thread_ts.replace(".", "")}'
         doc = get_thread_info(doc_id=doc_id)
         if doc is not None:
-            model = (
-                doc.get("model", model) if not model.get("generated", False) else model
-            )
-            logging.info(f"load existing model: {model}")
             th.exists_thread(client, doc)
         else:
             thread_messages = get_thread_messages(channel_id, thread_ts)
@@ -140,7 +136,7 @@ def handle_thread(event, process_ts, files, assistant, model):
         try:
             if not debug:
                 # メッセージを作成する
-                client.create_message(th.thread_id, th.prompt, th.files)
+                client.create_message(th.thread_id, th.prompt, files)
         except Exception as e:
             logging.exception(e)
             # 連続で質問されている場合は失敗するので処理を終了させる
@@ -154,7 +150,6 @@ def handle_thread(event, process_ts, files, assistant, model):
             item={
                 "thread_id": th.thread_id,
                 "run_id": "",
-                "model": model,
                 "files": file_history,
                 "updated_at": int(time.time()),
             },

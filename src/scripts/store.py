@@ -38,6 +38,7 @@ class Assistant:
         self.assistant_id = None
         self.level = 0
         self.client = None
+        self.assistant_name = "internal_search"
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.table = dynamodb.Table(DB_USERS_TABLE)
         self._get_assistant()
@@ -50,6 +51,9 @@ class Assistant:
             self.assistant_id = response["Item"].get("assistant_id")
             self.level = int(response["Item"].get("level", 0))
             self.api_key = response["Item"].get("api_key", self.api_key)
+            self.assistant_name = response["Item"].get(
+                "assistant_name", self.assistant_name
+            )
             if len(self.api_key) > 5:
                 self.client = AssistantAPIClient(api_key=self.api_key)
             logging.info(f"exists assistant: {self.assistant_id}")
@@ -83,6 +87,9 @@ class Assistant:
     def get_level(self):
         return self.level
 
+    def get_assistant_name(self):
+        return self.assistant_name
+
     def update_level(self, level):
         # if self.level == level:
         #    return
@@ -93,6 +100,14 @@ class Assistant:
             UpdateExpression="set #lvl = :l",
             ExpressionAttributeNames={"#lvl": "level"},
             ExpressionAttributeValues={":l": level},
+        )
+
+    def update_assistant_name(self, assistant_name):
+        table = dynamodb.Table(DB_USERS_TABLE)
+        table.update_item(
+            Key={"user_id": self.user_id},
+            UpdateExpression="set assistant_name = :n",
+            ExpressionAttributeValues={":n": assistant_name},
         )
 
 

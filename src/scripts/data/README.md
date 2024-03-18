@@ -1,9 +1,14 @@
-以下はYaraルールでメッセージを検査し、マッチした場合は該当するファイルやURLを提供するチャットボットシステムの設定ファイルのサンプルです。
+## 自動応答ルール
+
+以下はYaraルールでメッセージを検査し、マッチした場合は自動応答する設定です。
 
 * message.yara
 ```
 rule sample_guide
 {
+    meta:
+        message = "hello world."
+        description = "自動応答ルールのサンプル"
     strings:
         $keyword1 = "sample1"
         $keyword2 = "sample2"
@@ -14,16 +19,8 @@ rule sample_guide
 }
 ```
 
-* assistant.yaml
-  * model
-    - gpt-4-turbo-preview
-  * tools
-    - 定義済みpython関数
-      - google_search
-      - slack_search
-      - notion_search
-      - github_search
-      - google_drive_search
+
+## アシスタントの設定
 
 ```yaml
 sample_guide:

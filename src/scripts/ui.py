@@ -1,3 +1,4 @@
+import yaml
 from blockkit import (
     Divider,
     Input,
@@ -6,7 +7,12 @@ from blockkit import (
     Button,
     Actions,
     Section,
+    Home,
+    Header,
+    PlainOption,
+    StaticSelect,
 )
+from ai import CODE_INTERPRETER_EXTS
 
 
 def generate_faq_block():
@@ -119,6 +125,66 @@ def generate_api_key_input_message():
             ),
             Actions(elements=elements),
         ],
+    ).build()
+    blocks = payload["blocks"]
+    return blocks
+
+
+def generate_home():
+    blocks = []
+    blocks.append(Header(text="自動で入力される文脈"))
+    for context in [
+        "スレッドのメッセージ",
+        "チャンネル内のcanvas",
+        "アップロードされたファイル",
+        "アクションの実行結果",
+    ]:
+        blocks.append(Section(text=f"• {context}\n"))
+    blocks.append(Divider())
+    blocks.append(Header(text="アップロード可能なファイル"))
+    exts = [f"`{ext}`" for ext in CODE_INTERPRETER_EXTS]
+    blocks.append(Section(text=f'• {", ".join(exts)}'))
+    blocks.append(Section(text=f"• 任意のチャンネルのcanvas"))
+    blocks.append(Section(text=f"• テキストのスニペット"))
+    blocks.append(Divider())
+    blocks.append(Header(text="アシスタントの一覧"))
+    blocks.append(
+        Section(text="`/` ショートカットからアシスタントを変更することが可能です。\n")
+    )
+    with open("/function/data/assistant.yml") as f:
+        config = yaml.safe_load(f)
+    for assistant_name, assistant in config.items():
+        blocks.append(Header(text=assistant["name"]))
+        blocks.append(Section(text=f'```指示:\n{assistant.get("instructions", "")}```'))
+        for tool in assistant.get("tools", []):
+            if tool["type"] == "function":
+                function_name = tool["function"]["name"]
+                function_description = tool["function"].get("description", "")
+                blocks.append(
+                    Section(text=(f"・ `{function_name}` ({function_description})\n"))
+                )
+        blocks.append(Divider())
+    payload = Home(blocks=blocks).build()
+    return payload
+
+
+def generate_select_assistant_block():
+    with open("/function/data/assistant.yml") as f:
+        config = yaml.safe_load(f)
+    options = []
+    for assistant_name, assistant in config.items():
+        options.append(PlainOption(text=assistant["name"], value=assistant_name))
+    payload = Message(
+        blocks=[
+            Section(
+                text="アシスタントを選択してください",
+                accessory=StaticSelect(
+                    action_id="assistant-select",
+                    placeholder="未選択",
+                    options=options,
+                ),
+            ),
+        ]
     ).build()
     blocks = payload["blocks"]
     return blocks

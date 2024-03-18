@@ -83,7 +83,8 @@ def handle_message(event):
         return
 
     # プロンプトからアシスタントの設定を変更
-    model = generate_assistant_model(event)
+    assistant_name = assistant.get_assistant_name()
+    model = generate_assistant_model(assistant_name)
     logging.info(f"generate model: {model}")
     if model is not None:
         logging.info(f"generate model: {model}")

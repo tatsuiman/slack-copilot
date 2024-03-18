@@ -1,7 +1,4 @@
 import os
-import json
-import time
-import yara
 import yaml
 import logging
 import requests
@@ -13,8 +10,6 @@ from openai import AssistantEventHandler
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import RunStep, RunStepDelta
-from langchain_community.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
 from tools import browser_open
 from slacklib import BOT_USER_ID
 from langchain_community.callbacks.openai_info import get_openai_token_cost_for_model
@@ -108,7 +103,7 @@ class SlackAssistantEventHandler(AssistantEventHandler):
     # テキストの変更を処理します。
     @override
     def on_text_delta(self, delta: TextDelta, snapshot: Text) -> None:
-        if len(snapshot.value) != 0:
+        if delta.value and len(delta.value) != 0:
             self.message_callback.update(delta.value)
 
     # テキストの処理が完了したときの処理を行います。
@@ -199,14 +194,8 @@ class SlackAssistantEventHandler(AssistantEventHandler):
             update_run_id(doc_id, run_id)
 
 
-def generate_assistant_model(event):
+def generate_assistant_model(assistant_name):
     assistant_file = "/function/data/assistant.yml"
-    yara_file = "/function/data/assistant.yara"
-    message_rules = yara.compile(filepath=yara_file)
-    # メッセージを取得
-    message = event["text"]
-    # メッセージにマッチするルールを検索
-    matches = message_rules.match(data=message)
     # モデルを初期化
     model = {
         "tools": [],
@@ -214,42 +203,30 @@ def generate_assistant_model(event):
         "instructions": "あなたはユーザに質問に回答するアシスタントです",
         "additional_instructions": "",
     }
-    # マッチしたルールがある場合
-    if matches:
-        # アシスタントファイルを開き、データを読み込む
-        with open(assistant_file, "r") as f:
-            assistant_data = yaml.safe_load(f)
-        # 各マッチに対して
-        for match in matches:
-            # マッチしたルールがアシスタントデータに存在する場合
-            if match.rule in assistant_data:
-                logging.info(f"match yara rule: {match.rule}")
-                assistant = assistant_data[match.rule]
-                instructions = assistant.get("instructions")
-                additional_instructions = assistant.get("additional_instructions")
-                model["generated"] = True
-                model["tools"].extend(assistant.get("tools", []))
-                model["instructions"] = model.get("instructions", instructions)
-                if additional_instructions is not None:
-                    model["additional_instructions"] += additional_instructions
-                # ファイルを処理
-                for file in assistant.get("files", []):
-                    filename = f"/function/data/{file}"
-                    if os.path.exists(filename):
-                        model["files"].append(filename)
-                # URLを処理
-                for u in assistant.get("urls", []):
-                    url = u["url"]
-                    file = u["file"]
-                    title, content = browser_open(url)
-                    filename = os.path.join(mkdtemp(), file)
-                    with open(filename, "w") as f:
-                        f.write(content)
-                    model["files"].append(filename)
-        # モデルを返す
-        return model
-    # マッチしたルールがない場合、Noneを返す
-    return
+    # アシスタントファイルを開き、データを読み込む
+    with open(assistant_file, "r") as f:
+        assistant_data = yaml.safe_load(f)
+        assistant = assistant_data[assistant_name]
+        instructions = assistant.get("instructions")
+        model["generated"] = True
+        model["tools"].extend(assistant.get("tools", []))
+        model["instructions"] = model.get("instructions", instructions)
+        # ファイルを処理
+        for file in assistant.get("files", []):
+            filename = f"/function/data/{file}"
+            if os.path.exists(filename):
+                model["files"].append(filename)
+        # URLを処理
+        for u in assistant.get("urls", []):
+            url = u["url"]
+            file = u["file"]
+            title, content = browser_open(url)
+            filename = os.path.join(mkdtemp(), file)
+            with open(filename, "w") as f:
+                f.write(content)
+            model["files"].append(filename)
+    # モデルを返す
+    return model
 
 
 class AssistantAPIClient:

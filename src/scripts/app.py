@@ -2,8 +2,6 @@
 # https://qiita.com/seratch/items/12b39d636daf8b1e5fbf
 import os
 import yara
-import plyara
-import yaml
 import logging
 import sentry_sdk
 from sentry_sdk import set_user, set_tag
@@ -12,22 +10,14 @@ from slack_sdk import WebClient
 from slack_bolt import App, Ack, BoltContext, Respond
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.context import BoltContext
-from ui import generate_unfurl_message
-from ai import CODE_INTERPRETER_EXTS
-from store import Assistant
-from store import get_thread_info, publish_event
+from ui import generate_unfurl_message, generate_home, generate_select_assistant_block
+from store import Assistant, get_thread_info, publish_event
 from slacklib import (
     get_thread_messages,
     add_reaction,
     delete_message,
     get_im_channel_id,
     BOT_USER_ID,
-)
-from blockkit import (
-    Divider,
-    Home,
-    Header,
-    Section,
 )
 
 # 環境変数からプロジェクト名と関数名を取得
@@ -80,6 +70,44 @@ def generate_auto_reply_message(event):
         if len(reply_message) > 0:
             return reply_message
     return None
+
+
+@app.shortcut("update_assistant")
+def shortcut_update_assistant(ack, shortcut, client):
+    ack()
+    client.views_open(
+        trigger_id=shortcut["trigger_id"],
+        # A simple view payload for a modal
+        view={
+            "type": "modal",
+            "callback_id": "assistant-submit",
+            "title": {"type": "plain_text", "text": "アシスタントの変更"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "submit": {"type": "plain_text", "text": "update"},
+            "blocks": generate_select_assistant_block(),
+        },
+    )
+
+
+# sections ブロックの選択がされたときに呼び出されます
+@app.action("assistant-select")
+def handle_select_action(ack, body, logger):
+    ack()
+
+
+@app.view("assistant-submit")
+def handle_update_assistant(ack, view, body, respond):
+    ack()
+    selected = None
+    user_id = body["user"]["id"]
+    for block_id, block in view["state"]["values"].items():
+        for action_id, action in block.items():
+            if action["type"] == "static_select":
+                selected_option = action.get("selected_option")
+                if selected_option:
+                    selected = selected_option["value"]
+                    assistant = Assistant(user_id)
+                    assistant.update_assistant_name(selected)
 
 
 @app.action("send_api_key")
@@ -323,61 +351,8 @@ def handle_link_shared(event, say, ack):
 # App Homeが開かれたときのイベントハンドラ
 @app.event("app_home_opened")
 def update_home_tab(client, event, logger):
-    blocks = []
-    blocks.append(Header(text="自動で入力される文脈"))
-    for context in [
-        "スレッドのメッセージ",
-        "チャンネル内のcanvas",
-        "アップロードされたファイル",
-        "アクションの実行結果",
-    ]:
-        blocks.append(Section(text=f"• {context}\n"))
-    blocks.append(Divider())
-    blocks.append(Header(text="アップロード可能なファイル"))
-    exts = [f"`{ext}`" for ext in CODE_INTERPRETER_EXTS]
-    blocks.append(Section(text=f'• {", ".join(exts)}'))
-    blocks.append(Section(text=f"• 任意のチャンネルのcanvas"))
-    blocks.append(Section(text=f"• テキストのスニペット"))
-    blocks.append(Divider())
-    blocks.append(Header(text="アクションの実行ルール"))
-    blocks.append(
-        Section(
-            text="アクションとは、メッセージの内容を検査して特定の条件を満たした場合に実行される処理です。\n"
-            "メッセージの内容を検査する `strings` と `condition` の2つの要素で構成されます。"
-        )
-    )
-    blocks.append(Section(text="• strings: メッセージを検査する文字列パターン"))
-    blocks.append(Section(text="• condition: メッセージを検査する条件"))
-    with open("/function/data/assistant.yml") as f:
-        config = yaml.safe_load(f)
-
-    with open("/function/data/assistant.yara") as f:
-        parser = plyara.Plyara()
-        rules = parser.parse_string(f.read())
-        for rule in rules:
-            model = config[rule["rule_name"]]
-            functions = [
-                f'`{tool["function"]["name"]}`'
-                for tool in model.get("tools", [])
-                if tool["type"] == "function"
-            ]
-            if len(functions) > 0:
-                name = model["name"]
-                keywords = []
-                for keyword in rule["strings"]:
-                    keywords.append(f'`{keyword["value"]}`')
-                blocks.append(Header(text=name))
-                blocks.append(
-                    Section(
-                        text=f"アクション: {', '.join(functions)}\nルール:\n```{rule['raw_strings']}\n{rule['raw_condition']}```\n"
-                    )
-                )
-    try:
-        payload = Home(blocks=blocks).build()
-        # App Home UIの更新
-        client.views_publish(user_id=event["user"], view=payload)
-    except Exception as e:
-        print(f"Error publishing home tab: {e}")
+    payload = generate_home()
+    client.views_publish(user_id=event["user"], view=payload)
 
 
 @app.message("")
