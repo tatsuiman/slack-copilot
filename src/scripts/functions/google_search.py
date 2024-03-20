@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 
 # https://note.com/npaka/n/nd9a4a26a8932
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
-GOOGLE_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
 def run(keyword):
