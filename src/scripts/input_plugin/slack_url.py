@@ -4,7 +4,6 @@ import logging
 from tempfile import mkdtemp
 from slacklib import get_canvas_content
 
-PRIORITY = 0
 DESCRIPTION = "SlackのURLからチャンネルのCanvasを取得する"
 
 
@@ -23,15 +22,14 @@ def extract_slack_url(url):
     return canvas_content
 
 
-def run(event):
+def run(message):
     files = []
-    processed = False
-    message = event["text"]
+    prompt = ""
     canvas_content = extract_slack_url(message)
     if len(canvas_content) > 10:
-        processed = True
         canvas_file = os.path.join(mkdtemp(), "canvas.md")
         with open(canvas_file, "w") as f:
             f.write(canvas_content)
         files.append(canvas_file)
-    return event, files, processed
+        prompt = "ファイルはCanvasをMarkdownに保存したものです。"
+    return prompt, files

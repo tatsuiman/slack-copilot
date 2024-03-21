@@ -1,9 +1,11 @@
 import os
 import json
 import logging
-from google.auth import default as app_default_credentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+SERVICE_ACCOUNT_FILE = "/function/data/service_account.json"
 
 
 def run(keyword):
@@ -14,7 +16,9 @@ def run(keyword):
 
     try:
         # サービスアカウント認証情報の取得
-        credentials, default_project_id = app_default_credentials(scopes=SCOPES)
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES
+        )
 
         # Google Drive API クライアントの構築
         service = build("drive", "v3", credentials=credentials)

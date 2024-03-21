@@ -28,6 +28,9 @@ sample_guide:
   model: gpt-4-turbo-preview
   instructions: |
     あなたはサンプルの質問に回答するアシスタントです。
+  faq:
+    - text: ":face_with_monocle: 問題が未解決です"
+      value: 問題を解決するために足りない文脈があれば箇条書きで教えてください
   urls:
     - url: https://example1.com
       file: index.html
@@ -49,10 +52,4 @@ sample_guide:
          - keyword
          type: object
      type: function
-```
-
-* simple_search.py
-```python
-def run(keyword: str) -> str:
-    return "search result here"
 ```

@@ -2,14 +2,22 @@ import os
 import logging
 import traceback
 import sentry_sdk
+from pluginbase import PluginBase
 from slacklib import (
     add_reaction,
     update_message,
 )
-from store import file_plugin_source, input_plugin_source, output_plugin_source
 
-# 無効にするPluginリスt
 DISABLE_PLUGINS = os.getenv("DISABLE_PLUGINS", "").split(":")
+
+# PluginBase インスタンスを作成
+plugin_base = PluginBase(package="plugins")
+# 入力されたpromptに対する処理のプラグイン
+input_plugin_source = plugin_base.make_plugin_source(searchpath=["./input_plugin"])
+# 出力された応答に対する処理のプラグイン
+output_plugin_source = plugin_base.make_plugin_source(searchpath=["./output_plugin"])
+# ファイルに関するプラグイン
+file_plugin_source = plugin_base.make_plugin_source(searchpath=["./file_plugin"])
 
 
 def handle_output_plugin(completion):
@@ -34,48 +42,28 @@ def handle_output_plugin(completion):
 
 
 def handle_input_plugin(event, process_ts):
-    upload_files = []
     channel_id = event.get("channel")
     event_ts = event.get("ts")
-    user_id = event.get("user")
-    # プラグインとその優先度を格納するリスト
-    plugins_with_priority = []
+    message_text = event.get("text", "")
+    extract_files = []
+    additional_prompt = ""
+    # プラグインをロードし、関数を呼び出す
     for plugin_name in input_plugin_source.list_plugins():
-        if plugin_name in DISABLE_PLUGINS:
-            continue
-        # プラグインの優先度を取得（デフォルトは最低優先度）
-        plugin_module = input_plugin_source.load_plugin(plugin_name)
-        priority = getattr(plugin_module, "PRIORITY", float("inf"))
-        # プラグインとその優先度をリストに追加
-        plugins_with_priority.append((priority, plugin_name))
-    # 優先度に基づいてプラグインをソート
-    plugins_with_priority.sort()
-    # ソートされた順序でプラグインを実行
-    for _, plugin_name in plugins_with_priority:
         # プラグインをロード
         plugin_module = input_plugin_source.load_plugin(plugin_name)
-        logging.info(f"run extractor {plugin_name} {plugin_module.DESCRIPTION}")
+        logging.info(f"run extractor {plugin_name}")
         try:
-            _event, files, processed = plugin_module.run(event)
-            if type(_event) == dict:
-                event = _event
-            else:
-                logging.error(f"invalid event type: {type(_event)}")
-            if processed:
-                process_message = (
-                    f"{plugin_module.DESCRIPTION}\n抽出されたファイル数: {len(files)}\n"
-                )
-                update_message(channel_id, process_ts, process_message)
+            prompt, files = plugin_module.run(message_text)
             if len(files) > 0:
-                upload_files.extend(files)
+                process_message = f"{plugin_name}\n抽出されたファイル数: {len(files)}\n"
+                update_message(channel_id, process_ts, process_message)
+                extract_files.extend(files)
+                additional_prompt += prompt
         except Exception as e:
-            logging.info(event)
             sentry_sdk.capture_exception(e)
-            logging.error(traceback.format_exc())
+            logging.exception(e)
             add_reaction("dizzy_face", channel_id, event_ts)
-    logging.info(f"[{user_id}] input plugin extract {len(upload_files)} files")
-    logging.info(upload_files)
-    return upload_files, event
+    return additional_prompt, extract_files
 
 
 def handle_file_plugin(event, files, process_ts):

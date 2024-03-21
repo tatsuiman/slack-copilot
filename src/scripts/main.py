@@ -1,8 +1,6 @@
 import os
-import sys
 import json
 import logging
-import base64
 import hashlib
 import sentry_sdk
 from datetime import datetime
@@ -13,13 +11,12 @@ from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
-from ai import generate_assistant_model, BASE_MODEL
+from ai import generate_assistant_model
 from plugin import handle_file_plugin, handle_input_plugin
 from ui import generate_api_key_input_message
 from thread import handle_thread
 from store import Assistant
 from slacklib import (
-    add_reaction,
     post_message,
     update_message,
     get_slack_file_bytes,
@@ -71,6 +68,7 @@ def handle_message(event):
     event_ts = event.get("ts")
     subtype = event.get("subtype")
     response_files = []
+    upload_files = []
 
     res = post_message(channel_id, event_ts, "Typing...")
     process_ts = res["ts"]
@@ -85,21 +83,17 @@ def handle_message(event):
     # プロンプトからアシスタントの設定を変更
     assistant_name = assistant.get_assistant_name()
     model = generate_assistant_model(assistant_name)
-    logging.info(f"generate model: {model}")
-    if model is not None:
-        logging.info(f"generate model: {model}")
-        response_files.extend(model.get("files", []))
-        add_reaction("robot_face", channel_id, event_ts)
-    else:
-        model = {
-            "model": BASE_MODEL,
-            "instructions": "あなたはユーザに質問に回答するアシスタントです",
-            "tools": [],
-            "generated": False,
-        }
+    logging.info(f"assistant model: {model}")
 
     # メッセージからファイルを抽出
-    extract_files, event = handle_input_plugin(event, process_ts)
+    additional_prompt, extract_files = handle_input_plugin(event, process_ts)
+    event["text"] += additional_prompt
+
+    # 抽出されたファイルをスレッドに返信する
+    if len(extract_files) > 0:
+        message = "以下のファイルが抽出されました。"
+        # 抽出されたファイルを返信する
+        post_message(channel_id, thread_ts, message, files=extract_files)
 
     # ファイルアップロードイベント
     if subtype == "file_share":
@@ -108,18 +102,10 @@ def handle_message(event):
 
     # ファイルプラグインの実行
     extract_files, event = handle_file_plugin(event, extract_files, process_ts)
-    response_files.extend(extract_files)
-
     # アシスタントの処理
-    handle_thread(event, process_ts, response_files, assistant, model)
+    handle_thread(event, process_ts, extract_files, assistant, model)
 
     logging.info(f"response files: {response_files}")
-
-    # 抽出されたファイルをスレッドに返信する
-    # if len(response_files) > 0:
-    #    message = "以下のファイルが抽出されました。"
-    #    # 抽出されたファイルを返信する
-    #    post_message(channel_id, thread_ts, message, files=response_files)
 
     return ("", 200, headers)
 

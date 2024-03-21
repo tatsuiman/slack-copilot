@@ -198,6 +198,8 @@ def generate_assistant_model(assistant_name):
     assistant_file = "/function/data/assistant.yml"
     # モデルを初期化
     model = {
+        "model": "",
+        "faq": [],
         "tools": [],
         "files": [],
         "instructions": "あなたはユーザに質問に回答するアシスタントです",
@@ -208,7 +210,8 @@ def generate_assistant_model(assistant_name):
         assistant_data = yaml.safe_load(f)
         assistant = assistant_data[assistant_name]
         instructions = assistant.get("instructions")
-        model["generated"] = True
+        model["model"] = assistant.get("model", "")
+        model["faq"] = assistant.get("faq", [])
         model["tools"].extend(assistant.get("tools", []))
         model["instructions"] = model.get("instructions", instructions)
         # ファイルを処理

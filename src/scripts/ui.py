@@ -15,35 +15,12 @@ from blockkit import (
 from ai import CODE_INTERPRETER_EXTS
 
 
-def generate_faq_block():
-    elements = [
-        Button(
-            action_id="notion_button",
-            text=":memo: Notionページ作成",
-            value="notion",
-            style="primary",
-        ),
-        Button(
-            action_id="unresolve_button",
-            text=":face_with_monocle: 問題が未解決です",
-            value="unresolve",
-        ),
-        Button(
-            action_id="contradiction_button",
-            text=":face_with_one_eyebrow_raised: 潜在的な問題や矛盾点を探す",
-            value="contradiction",
-        ),
-        Button(
-            action_id="search_button",
-            text=":slack: 関連する内容を探す",
-            value="search",
-        ),
-        Button(
-            action_id="google_search_button",
-            text=":mag: googleで検索",
-            value="google_search",
-        ),
-    ]
+def generate_faq_block(questions=[]):
+    elements = []
+    for index, question in enumerate(questions[:5]):
+        question["action_id"] = f"faq_button_{index}"
+        elements.append(Button(**question))
+
     payload = Message(
         blocks=[
             Actions(elements=elements),
@@ -130,14 +107,17 @@ def generate_api_key_input_message():
     return blocks
 
 
-def generate_home():
+def generate_home(assistant_name: str):
     blocks = []
+    with open("/function/data/assistant.yml") as f:
+        config = yaml.safe_load(f)
+    current_assistant_name = config[assistant_name]["name"]
     blocks.append(Header(text="自動で入力される文脈"))
     for context in [
         "スレッドのメッセージ",
         "チャンネル内のcanvas",
         "アップロードされたファイル",
-        "アクションの実行結果",
+        "関数の実行結果",
     ]:
         blocks.append(Section(text=f"• {context}\n"))
     blocks.append(Divider())
@@ -151,8 +131,8 @@ def generate_home():
     blocks.append(
         Section(text="`/` ショートカットからアシスタントを変更することが可能です。\n")
     )
-    with open("/function/data/assistant.yml") as f:
-        config = yaml.safe_load(f)
+    blocks.append(Section(text=f"現在のアシスタント: `{current_assistant_name}`\n"))
+
     for assistant_name, assistant in config.items():
         blocks.append(Header(text=assistant["name"]))
         blocks.append(Section(text=f'```指示:\n{assistant.get("instructions", "")}```'))

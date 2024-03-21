@@ -8,7 +8,7 @@ from pluginbase import PluginBase
 from slacklib import post_message
 from plugin import handle_output_plugin
 from slacklib import post_message, update_message, upload_file
-from ui import generate_faq_block, generate_step_block
+from ui import generate_step_block
 from tools import truncate_strings, calculate_token_size
 
 STREAM_RATE = 1
@@ -70,8 +70,7 @@ class MessageCallback:
 
     # メッセージの終了処理を行います。
     def end(self):
-        blocks = generate_faq_block()
-        post_message(self.channel_id, self.message_ts, blocks=blocks)
+        pass
 
 
 # ステップコールバックを処理するクラスです。

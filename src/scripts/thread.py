@@ -10,7 +10,7 @@ from datetime import datetime
 from ai import HEAVY_MODEL, BASE_MODEL
 from tools import truncate_token_size
 from ux import assistant_instructor, MAX_LEVEL
-from ui import generate_completion_block
+from ui import generate_completion_block, generate_faq_block
 from callback import StepCallback, MessageCallback
 from store import get_thread_info, update_thread_info
 from slacklib import (
@@ -105,7 +105,8 @@ def handle_thread(event, process_ts, files, assistant, model):
     event_ts = event.get("ts")
     file_history = []
     level = assistant.get_level()
-    model_name = BASE_MODEL if level < MAX_LEVEL else HEAVY_MODEL
+    base_model_name = BASE_MODEL if level < MAX_LEVEL else HEAVY_MODEL
+    model_name = model["model"] if len(model["model"]) > 0 else base_model_name
     debug = True if user_id == TEST_USER else False
 
     prompt = message_text.replace(f"<@{BOT_USER_ID}>", "").strip()
@@ -164,6 +165,7 @@ def handle_thread(event, process_ts, files, assistant, model):
         cost_completion_1k_token = MODEL_COST_PER_1K_TOKENS.get(
             f"{model_name}-completion", 0.03
         )
+        # コストやトークン使用量を計算
         total_cost_today = client.get_usage(datetime.now().strftime("%Y-%m-%d"))
         pre_message = (
             f"`{model_name}`が回答を生成中です。\n"
@@ -188,6 +190,11 @@ def handle_thread(event, process_ts, files, assistant, model):
             th, assistant, message_callback, step_callback, additional_instructions
         )
         time.sleep(1)
+        # よくある質問を送信
+        faq = model["faq"]
+        if len(faq) > 0:
+            blocks = generate_faq_block(faq)
+            post_message(channel_id, thread_ts, blocks=blocks)
         # ユーザレベルを上げる
         next_level = assistant_instructor(
             channel_id,

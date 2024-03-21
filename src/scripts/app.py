@@ -183,8 +183,12 @@ def handle_ask_action(ack, body, client):
     publish_event(event)
 
 
-@app.action("contradiction_button")
-def contradiction_button(ack: Ack, body: dict, action: dict, respond: Respond):
+@app.action("faq_button_0")
+@app.action("faq_button_1")
+@app.action("faq_button_2")
+@app.action("faq_button_3")
+@app.action("faq_button_4")
+def faq_button(ack: Ack, body: dict, action: dict, respond: Respond):
     ack()
     user_id = body["user"]["id"]
     channel_id = body["channel"]["id"]
@@ -197,92 +201,7 @@ def contradiction_button(ack: Ack, body: dict, action: dict, respond: Respond):
         "type": "message",
         "channel": channel_id,
         "thread_ts": thread_ts,
-        "text": "内容について潜在的な矛盾点を指摘してください。",
-        "ts": message_ts,
-    }
-    publish_event(event)
-
-
-@app.action("google_search_button")
-def google_search_button(ack: Ack, body: dict, action: dict, respond: Respond):
-    ack()
-    user_id = body["user"]["id"]
-    channel_id = body["channel"]["id"]
-    thread_ts = body["container"]["thread_ts"]
-    message_ts = body["container"]["message_ts"]
-    add_reaction("eyes", channel_id, message_ts)
-    set_user({"id": user_id})
-    event = {
-        "user": user_id,
-        "type": "message",
-        "channel": channel_id,
-        "thread_ts": thread_ts,
-        "text": "関連する内容をgoogleで検索してください。",
-        "ts": message_ts,
-    }
-    publish_event(event)
-
-
-@app.action("unresolve_button")
-def unresolve_button(ack: Ack, body: dict, action: dict, respond: Respond):
-    ack()
-    user_id = body["user"]["id"]
-    channel_id = body["channel"]["id"]
-    thread_ts = body["container"]["thread_ts"]
-    message_ts = body["container"]["message_ts"]
-    add_reaction("eyes", channel_id, message_ts)
-    set_user({"id": user_id})
-    event = {
-        "user": user_id,
-        "type": "message",
-        "channel": channel_id,
-        "thread_ts": thread_ts,
-        "text": "問題を解決するために足りない文脈があれば箇条書きで教えてください。",
-        "ts": message_ts,
-    }
-    publish_event(event)
-
-
-@app.action("search_button")
-def search_button(ack: Ack, body: dict, action: dict, respond: Respond):
-    ack()
-    user_id = body["user"]["id"]
-    channel_id = body["channel"]["id"]
-    thread_ts = body["container"]["thread_ts"]
-    message_ts = body["container"]["message_ts"]
-    add_reaction("eyes", channel_id, message_ts)
-    set_user({"id": user_id})
-    event = {
-        "user": user_id,
-        "type": "message",
-        "channel": channel_id,
-        "thread_ts": thread_ts,
-        "text": "関連する内容についてSlackを検索して探してください。",
-        "ts": message_ts,
-    }
-    respond(
-        "関連する内容についてSlackを検索して回答を生成しています。\n次回からは「slackを検索して〜してください」や「notionを検索して〜してください」のように質問してみてください。",
-        replace_original=False,
-        thread_ts=thread_ts,
-    )
-    publish_event(event)
-
-
-@app.action("notion_button")
-def notion_button(ack: Ack, body: dict, action: dict, respond: Respond):
-    ack()
-    user_id = body["user"]["id"]
-    channel_id = body["channel"]["id"]
-    thread_ts = body["container"]["thread_ts"]
-    message_ts = body["container"]["message_ts"]
-    add_reaction("eyes", channel_id, message_ts)
-    set_user({"id": user_id})
-    event = {
-        "user": user_id,
-        "type": "message",
-        "channel": channel_id,
-        "thread_ts": thread_ts,
-        "text": "会話の内容をNotionにまとめてください。",
+        "text": action["value"],
         "ts": message_ts,
     }
     publish_event(event)
@@ -351,7 +270,10 @@ def handle_link_shared(event, say, ack):
 # App Homeが開かれたときのイベントハンドラ
 @app.event("app_home_opened")
 def update_home_tab(client, event, logger):
-    payload = generate_home()
+    user_id = event["user"]
+    assistant = Assistant(user_id)
+    assistant_name = assistant.get_assistant_name()
+    payload = generate_home(assistant_name)
     client.views_publish(user_id=event["user"], view=payload)
 
 

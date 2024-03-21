@@ -1,23 +1,10 @@
 import os
+import yaml
 import json
 import logging
 import boto3
-from pluginbase import PluginBase
 from slacklib import get_user_id
 from ai import AssistantAPIClient
-
-# PluginBase インスタンスを作成
-plugin_base = PluginBase(package="plugins")
-# 入力されたpromptに対する処理のプラグイン
-input_plugin_source = plugin_base.make_plugin_source(searchpath=["./input_plugin"])
-# 出力された応答に対する処理のプラグイン
-output_plugin_source = plugin_base.make_plugin_source(searchpath=["./output_plugin"])
-# ファイルに関するプラグイン
-file_plugin_source = plugin_base.make_plugin_source(searchpath=["./file_plugin"])
-
-logging.info(f"file plugins: {file_plugin_source.list_plugins()}")
-logging.info(f"input plugins: {input_plugin_source.list_plugins()}")
-logging.info(f"output plugins: {output_plugin_source.list_plugins()}")
 
 # DynamoDB Client
 dynamodb = boto3.resource("dynamodb")

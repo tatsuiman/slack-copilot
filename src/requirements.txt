@@ -14,7 +14,6 @@ graphviz
 gunicorn
 flask
 pluginbase
-google-api-python-client
 youtube-transcript-api
 functions-framework
 sentry-sdk
@@ -27,3 +26,7 @@ yara-python
 plyara
 boto3
 awslambdaric
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+

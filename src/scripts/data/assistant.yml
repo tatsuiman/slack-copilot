@@ -1,8 +1,56 @@
+gpt3_assistant:
+  name: GPT3.5 アシスタント
+  model: gpt-3.5-turbo-0125
+
+gpt4_assistant:
+  name: GPT4 アシスタント
+  model: gpt-4-turbo-preview
+
+gpt3_engineering_assistant:
+  name: GPT3.5 エンジニアリングアシスタント
+  model: gpt-3.5-turbo-0125
+  instructions: |
+    あなたはコーディングやデータ分析に特化したアシスタントです
+  faq:
+    - text: ":face_with_monocle: 問題が未解決です"
+      value: 問題を解決するために足りない文脈があれば箇条書きで教えてください
+    - text: ":robot_face: コードを修正する"
+      value: "コードを修正してください"
+    - text: ":chart_with_upwards_trend: チャートを出力"
+      value: "データを自由に分析してチャートを出力してください"
+  tools:
+    - type: code_interpreter
+
+gpt4_engineering_assistant:
+  name: GPT4 エンジニアリングアシスタント
+  model: gpt-4-turbo-preview
+  instructions: |
+    あなたはコーディングやデータ分析に特化したアシスタントです
+  faq:
+    - text: ":face_with_monocle: 問題が未解決です"
+      value: 問題を解決するために足りない文脈があれば箇条書きで教えてください
+    - text: ":robot_face: コードを修正する"
+      value: "コードを修正してください"
+    - text: ":chart_with_upwards_trend: チャートを出力"
+      value: "データを自由に分析してチャートを出力してください"
+  tools:
+    - type: code_interpreter
+
 internal_search:
   name: 社内ナレッジ検索アシスタント
   instructions: |
     あなたは指示された内容に関連したキーワードで社内ツールで検索を行い、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
     回答にはURLなどの情報元の一覧も含めます。
+  faq:
+    - text: ":memo: Notionページ作成"
+      value: "会話の内容をNotionにまとめてください"
+      style: primary
+    - text: ":face_with_monocle: 問題が未解決です"
+      value: "問題を解決するために足りない文脈があれば箇条書きで教えてください"
+    - text: ":face_with_one_eyebrow_raised: 潜在的な問題や矛盾点を探す"
+      value: "問題を解決するために足りない文脈があれば箇条書きで教えてください"
+    - text: ":slack: 関連する内容を探す"
+      value: "関連する内容についてSlackを検索して探してください"
   tools:
     - type: code_interpreter
     - function:
@@ -135,6 +183,12 @@ internet_search:
   instructions: |
     あなたは指示された内容に関連したキーワードで検索を行い、ヒットした複雑な内容を理解して日本語で回答するアシスタントです。
     回答にはURLなどの情報元の一覧も含めます。
+  faq:
+    - text: ":memo: Notionページ作成"
+      value: "会話の内容をNotionにまとめてください"
+      style: primary
+    - text: ":mag: googleで検索"
+      value: "関連する内容をgoogleで検索してください"      
   tools:
     - type: code_interpreter
     - function:
@@ -195,5 +249,20 @@ internet_search:
               type: string
           required:
             - query
+          type: object
+      type: function
+    - function:
+        description: Create Notion Page
+        name: create_notion_page
+        parameters:
+          properties:
+            title:
+              description: page title
+              type: string
+            content:
+              description: markdown text
+              type: string
+          required:
+            - url
           type: object
       type: function

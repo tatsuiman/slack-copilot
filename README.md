@@ -78,6 +78,7 @@ sequenceDiagram
 
 ## Functions
 以下はチャットボットが呼び出し可能な機能一覧です。
+独自のfunctionの実装方法は[こちら](./src/scripts/functions/README.md)
 
 - `create_notion_page`: 指定されたタイトルと内容でNotionページを作成します。
 - `open_youtube_url`: YoutubeのURLから字幕を取得します。
