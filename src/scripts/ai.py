@@ -47,6 +47,7 @@ CODE_INTERPRETER_EXTS = (
 
 
 # ツール呼び出しの結果を処理し、必要なアクションがある場合はそれを実行します。
+# 参考: https://github.com/Azure-Samples/azureai-assistant-tool/blob/c5878d4a5d56bdc96ba10a8eff41bdfd7cf00770/sdk/azure-ai-assistant/azure/ai/assistant/management/assistant_client.py#L505
 def tool_call_handler(run, client, message_callback, step_callback):
     if (
         not hasattr(run, "required_action")
@@ -78,6 +79,7 @@ def tool_call_handler(run, client, message_callback, step_callback):
 
 
 # イベントハンドラーのクラスです。OpenAI Assistantからのイベントを処理します。
+# 参考: https://github.com/openai/openai-python/blob/main/helpers.md
 class SlackAssistantEventHandler(AssistantEventHandler):
     def __init__(self, client, thread_store, message_callback, step_callback) -> None:
         super().__init__()
