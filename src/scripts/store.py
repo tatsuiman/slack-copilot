@@ -3,8 +3,10 @@ import yaml
 import json
 import logging
 import boto3
+from tempfile import mkdtemp
 from slacklib import get_user_id
 from ai import AssistantAPIClient
+from tools import browser_open
 
 # DynamoDB Client
 dynamodb = boto3.resource("dynamodb")
@@ -97,28 +99,69 @@ class Assistant:
             ExpressionAttributeValues={":n": assistant_name},
         )
 
+    def load_assistant_config(self):
+        assistant_file = "/function/data/assistant.yml"
+        # モデルを初期化
+        assistant_config = {
+            "model": "",
+            "faq": [],
+            "tools": [],
+            "files": [],
+            "instructions": "あなたはユーザに質問に回答するアシスタントです",
+            "additional_instructions": "",
+        }
+        # アシスタントファイルを開き、データを読み込む
+        with open(assistant_file, "r") as f:
+            assistant_data = yaml.safe_load(f)
+            assistant = assistant_data[self.assistant_name]
+            instructions = assistant.get("instructions")
+            assistant_config["model"] = assistant.get("model", "")
+            assistant_config["faq"] = assistant.get("faq", [])
+            assistant_config["tools"].extend(assistant.get("tools", []))
+            assistant_config["instructions"] = assistant_config.get(
+                "instructions", instructions
+            )
+            # ファイルを処理
+            for file in assistant.get("files", []):
+                filename = f"/function/data/{file}"
+                if os.path.exists(filename):
+                    assistant_config["files"].append(filename)
+            # URLを処理
+            for u in assistant.get("urls", []):
+                url = u["url"]
+                file = u["file"]
+                title, content = browser_open(url)
+                filename = os.path.join(mkdtemp(), file)
+                with open(filename, "w") as f:
+                    f.write(content)
+                assistant_config["files"].append(filename)
+        # モデルを返す
+        return assistant_config
 
-def get_thread_info(doc_id):
-    table = dynamodb.Table(DB_MESSAGE_TABLE)
-    doc = table.get_item(Key={"doc_id": doc_id})
-    if "Item" in doc:
-        return doc["Item"]
-    return None
 
+class ThreadStore:
+    def __init__(self, doc_id):
+        self.doc_id = doc_id
 
-def update_thread_info(doc_id, item):
-    item["doc_id"] = doc_id
-    table = dynamodb.Table(DB_MESSAGE_TABLE)
-    table.put_item(Item=item)
+    def get_thread_info(self):
+        table = dynamodb.Table(DB_MESSAGE_TABLE)
+        doc = table.get_item(Key={"doc_id": self.doc_id})
+        if "Item" in doc:
+            return doc["Item"]
+        return None
 
+    def update_thread_info(self, item):
+        item["doc_id"] = self.doc_id
+        table = dynamodb.Table(DB_MESSAGE_TABLE)
+        table.put_item(Item=item)
 
-def update_run_id(doc_id, run_id):
-    table = dynamodb.Table(DB_MESSAGE_TABLE)
-    table.update_item(
-        Key={"doc_id": doc_id},
-        UpdateExpression="set run_id = :r",
-        ExpressionAttributeValues={":r": run_id},
-    )
+    def update_run_id(self, run_id):
+        table = dynamodb.Table(DB_MESSAGE_TABLE)
+        table.update_item(
+            Key={"doc_id": self.doc_id},
+            UpdateExpression="set run_id = :r",
+            ExpressionAttributeValues={":r": run_id},
+        )
 
 
 def publish_event(event):

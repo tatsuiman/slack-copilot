@@ -11,7 +11,6 @@ from sentry_sdk.integrations.aws_lambda import AwsLambdaIntegration
 
 logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
-from ai import generate_assistant_model
 from plugin import handle_file_plugin, handle_input_plugin
 from ui import generate_api_key_input_message
 from thread import handle_thread
@@ -81,9 +80,8 @@ def handle_message(event):
         return
 
     # プロンプトからアシスタントの設定を変更
-    assistant_name = assistant.get_assistant_name()
-    model = generate_assistant_model(assistant_name)
-    logging.info(f"assistant model: {model}")
+    assistant_config = assistant.load_assistant_config()
+    logging.info(f"assistant config: {assistant_config}")
 
     # メッセージからファイルを抽出
     additional_prompt, extract_files = handle_input_plugin(event, process_ts)
@@ -103,7 +101,7 @@ def handle_message(event):
     # ファイルプラグインの実行
     extract_files, event = handle_file_plugin(event, extract_files, process_ts)
     # アシスタントの処理
-    handle_thread(event, process_ts, extract_files, assistant, model)
+    handle_thread(event, process_ts, extract_files, assistant, assistant_config)
 
     logging.info(f"response files: {response_files}")
 

@@ -4,14 +4,11 @@ import logging
 import requests
 import sentry_sdk
 from openai import OpenAI
-from tempfile import mkdtemp
 from typing_extensions import override
 from openai import AssistantEventHandler
 from openai.types.beta import AssistantStreamEvent
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import RunStep, RunStepDelta
-from tools import browser_open
-from slacklib import BOT_USER_ID
 from langchain_community.callbacks.openai_info import get_openai_token_cost_for_model
 
 from tools import *
@@ -82,11 +79,12 @@ def tool_call_handler(run, client, message_callback, step_callback):
 
 # イベントハンドラーのクラスです。OpenAI Assistantからのイベントを処理します。
 class SlackAssistantEventHandler(AssistantEventHandler):
-    def __init__(self, client, message_callback, step_callback) -> None:
+    def __init__(self, client, thread_store, message_callback, step_callback) -> None:
         super().__init__()
         self.message_callback = message_callback
         self.step_callback = step_callback
         self.client = client
+        self.thread_store = thread_store
 
     # ファイルを取得し、指定されたディレクトリに保存します。
     def retrieve_file(self, file_id, ext=None, directory="/tmp"):
@@ -186,50 +184,8 @@ class SlackAssistantEventHandler(AssistantEventHandler):
             self.message_callback.update(event.data.last_error.message)
 
         if event.event == "thread.run.created":
-            from store import update_run_id
-
-            thread_ts = self.message_callback.message_ts
-            doc_id = f'{BOT_USER_ID}_run_{thread_ts.replace(".", "")}'
             run_id = event.data.id
-            update_run_id(doc_id, run_id)
-
-
-def generate_assistant_model(assistant_name):
-    assistant_file = "/function/data/assistant.yml"
-    # モデルを初期化
-    model = {
-        "model": "",
-        "faq": [],
-        "tools": [],
-        "files": [],
-        "instructions": "あなたはユーザに質問に回答するアシスタントです",
-        "additional_instructions": "",
-    }
-    # アシスタントファイルを開き、データを読み込む
-    with open(assistant_file, "r") as f:
-        assistant_data = yaml.safe_load(f)
-        assistant = assistant_data[assistant_name]
-        instructions = assistant.get("instructions")
-        model["model"] = assistant.get("model", "")
-        model["faq"] = assistant.get("faq", [])
-        model["tools"].extend(assistant.get("tools", []))
-        model["instructions"] = model.get("instructions", instructions)
-        # ファイルを処理
-        for file in assistant.get("files", []):
-            filename = f"/function/data/{file}"
-            if os.path.exists(filename):
-                model["files"].append(filename)
-        # URLを処理
-        for u in assistant.get("urls", []):
-            url = u["url"]
-            file = u["file"]
-            title, content = browser_open(url)
-            filename = os.path.join(mkdtemp(), file)
-            with open(filename, "w") as f:
-                f.write(content)
-            model["files"].append(filename)
-    # モデルを返す
-    return model
+            self.thread_store.update_run_id(run_id)
 
 
 class AssistantAPIClient:
@@ -359,7 +315,13 @@ class AssistantAPIClient:
         return self.client.beta.threads.runs.cancel(thread_id=thread_id, run_id=run_id)
 
     def run_assistant(
-        self, th, assistant, message_callback, step_callback, additional_instructions
+        self,
+        th,
+        assistant,
+        thread_store,
+        message_callback,
+        step_callback,
+        additional_instructions,
     ):
         try:
 
@@ -368,7 +330,7 @@ class AssistantAPIClient:
                 thread_id=th.thread_id,
                 assistant_id=assistant_id,
                 event_handler=SlackAssistantEventHandler(
-                    self.client, message_callback, step_callback
+                    self.client, thread_store, message_callback, step_callback
                 ),
             ) as stream:
                 stream.until_done()

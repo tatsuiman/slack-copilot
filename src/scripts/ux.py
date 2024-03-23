@@ -7,7 +7,7 @@ from blockkit import Message, Section
 MAX_LEVEL = 6
 
 
-def assistant_instructor(channel_id, process_ts, user_id, model, th, level):
+def assistant_instructor(channel_id, process_ts, user_id, assistant_config, th, level):
     next_level = level
     thread_len = th.thread_len
     token_size = th.token_size
@@ -15,7 +15,7 @@ def assistant_instructor(channel_id, process_ts, user_id, model, th, level):
 
     functions = [
         tool["function"]["name"]
-        for tool in model["tools"]
+        for tool in assistant_config["tools"]
         if tool["type"] == "function"
     ]
     demo_reaction = [

@@ -12,7 +12,7 @@ from tools import truncate_token_size
 from ux import assistant_instructor, MAX_LEVEL
 from ui import generate_completion_block, generate_faq_block
 from callback import StepCallback, MessageCallback
-from store import get_thread_info, update_thread_info
+from store import ThreadStore
 from slacklib import (
     get_thread_messages,
     add_reaction,
@@ -96,7 +96,7 @@ class ThreadHandler:
         logging.info(f"exists thread {self.thread_id}")
 
 
-def handle_thread(event, process_ts, files, assistant, model):
+def handle_thread(event, process_ts, files, assistant, assistant_config):
     client = assistant.client
     user_id = event.get("user")
     message_text = event.get("text", "")
@@ -106,7 +106,11 @@ def handle_thread(event, process_ts, files, assistant, model):
     file_history = []
     level = assistant.get_level()
     base_model_name = BASE_MODEL if level < MAX_LEVEL else HEAVY_MODEL
-    model_name = model["model"] if len(model["model"]) > 0 else base_model_name
+    model_name = (
+        assistant_config["model"]
+        if len(assistant_config["model"]) > 0
+        else base_model_name
+    )
     debug = True if user_id == TEST_USER else False
 
     prompt = message_text.replace(f"<@{BOT_USER_ID}>", "").strip()
@@ -114,7 +118,8 @@ def handle_thread(event, process_ts, files, assistant, model):
     try:
         # DynamoDBからOpenAI Threadを取得
         doc_id = f'{BOT_USER_ID}_run_{thread_ts.replace(".", "")}'
-        doc = get_thread_info(doc_id=doc_id)
+        thread_store = ThreadStore(doc_id=doc_id)
+        doc = thread_store.get_thread_info()
         if doc is not None:
             th.exists_thread(client, doc)
         else:
@@ -123,16 +128,16 @@ def handle_thread(event, process_ts, files, assistant, model):
         # 過去のファイル履歴からツールを復元する
         file_history.extend(th.files)
         # アシスタントを更新する
-        model["tools"] = client.update_assistant_tools(
-            file_history, tools=model["tools"]
+        assistant_config["tools"] = client.update_assistant_tools(
+            file_history, tools=assistant_config["tools"]
         )
-        additional_instructions = model.get("additional_instructions", "")
-        logging.info(f"update assistant model: {model}")
+        additional_instructions = assistant_config.get("additional_instructions", "")
+        logging.info(f"update assistant config: {assistant_config}")
         client.update_assistant(
             assistant.get_assistant_id(),
             model=model_name,
-            instructions=model["instructions"],
-            tools=model["tools"],
+            instructions=assistant_config["instructions"],
+            tools=assistant_config["tools"],
         )
         try:
             if not debug:
@@ -146,8 +151,7 @@ def handle_thread(event, process_ts, files, assistant, model):
             return
 
         # スレッドの状態を更新する
-        update_thread_info(
-            doc_id=doc_id,
+        thread_store.update_thread_info(
             item={
                 "thread_id": th.thread_id,
                 "run_id": "",
@@ -158,7 +162,7 @@ def handle_thread(event, process_ts, files, assistant, model):
         # 事前にメッセージを送信
         functions = [
             f"`{tool['function']['name']}`"
-            for tool in model["tools"]
+            for tool in assistant_config["tools"]
             if tool["type"] == "function"
         ]
         cost_1k_token = MODEL_COST_PER_1K_TOKENS.get(model_name, 0.01)
@@ -187,11 +191,16 @@ def handle_thread(event, process_ts, files, assistant, model):
         step_callback = StepCallback(channel_id, thread_ts)
         message_callback = MessageCallback(channel_id, thread_ts)
         client.run_assistant(
-            th, assistant, message_callback, step_callback, additional_instructions
+            th,
+            assistant,
+            thread_store,
+            message_callback,
+            step_callback,
+            additional_instructions,
         )
         time.sleep(1)
         # よくある質問を送信
-        faq = model["faq"]
+        faq = assistant_config["faq"]
         if len(faq) > 0:
             blocks = generate_faq_block(faq)
             post_message(channel_id, thread_ts, blocks=blocks)
@@ -200,7 +209,7 @@ def handle_thread(event, process_ts, files, assistant, model):
             channel_id,
             thread_ts,
             user_id,
-            model,
+            assistant_config,
             th,
             level,
         )

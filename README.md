@@ -1,5 +1,7 @@
 # 概要
-ナレッジ管理に特化したSlackで動作するChatGPTです。
+ナレッジ管理に特化したSlackで動作するChatGPTです。  
+
+[Assistants API streaming でSlack Copilotを作った](https://zenn.dev/tatsui/articles/slack-copilot)
 
 ## Features
 

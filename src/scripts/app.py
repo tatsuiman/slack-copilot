@@ -11,7 +11,7 @@ from slack_bolt import App, Ack, BoltContext, Respond
 from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from slack_bolt.context import BoltContext
 from ui import generate_unfurl_message, generate_home, generate_select_assistant_block
-from store import Assistant, get_thread_info, publish_event
+from store import Assistant, ThreadStore, publish_event
 from slacklib import (
     get_thread_messages,
     add_reaction,
@@ -231,7 +231,8 @@ def delete_button(ack: Ack, body: dict, action: dict, respond: Respond):
     ts = thread_messages[-1]["thread_ts"]
     doc_id = f'{BOT_USER_ID}_run_{ts.replace(".", "")}'
     try:
-        doc = get_thread_info(doc_id=doc_id)
+        thread_store = ThreadStore(doc_id=doc_id)
+        doc = thread_store.get_thread_info()
         if doc is not None:
             # ドキュメントIDが存在する場合はOpenAI Thread IDを取得する
             run_id = doc.get("run_id")

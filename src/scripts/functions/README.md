@@ -28,7 +28,7 @@ def run(url, language=["ja"]):
 次に`data/assistant.yml`に以下のように追記します。
 ```yaml
 youtube_transcript:
-  name: 
+  name: Youtubeアシスタント
   instructions: |
     Youtube URLから字幕を生成し質問に回答するアシスタントです
   tools:
