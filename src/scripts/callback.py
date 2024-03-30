@@ -159,7 +159,8 @@ class StepCallback:
     # 処理が完了したときの処理を行います。
     def done(self):
         message = f"コード\n```\n{self.current_message}\n```\n実行結果\n```\n{self.output}\n```\n"
-        blocks = generate_step_block(message)
+        truncated_message = truncate_strings(message, max_tokens=2500)
+        blocks = generate_step_block(truncated_message)
         update_message(self.channel_id, self.ts, blocks=blocks)
         self.ts = 0
         self.output = "none"
