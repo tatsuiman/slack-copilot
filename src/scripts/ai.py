@@ -48,7 +48,7 @@ CODE_INTERPRETER_EXTS = (
 
 # ツール呼び出しの結果を処理し、必要なアクションがある場合はそれを実行します。
 # 参考: https://github.com/Azure-Samples/azureai-assistant-tool/blob/c5878d4a5d56bdc96ba10a8eff41bdfd7cf00770/sdk/azure-ai-assistant/azure/ai/assistant/management/assistant_client.py#L505
-def tool_call_handler(run, client, message_callback, step_callback):
+def tool_call_handler(run, client, thread_store, message_callback, step_callback):
     if (
         not hasattr(run, "required_action")
         or not hasattr(run.required_action, "submit_tool_outputs")
@@ -72,7 +72,7 @@ def tool_call_handler(run, client, message_callback, step_callback):
         run_id=run.id,
         tool_outputs=tool_outputs,
         event_handler=SlackAssistantEventHandler(
-            client, message_callback, step_callback
+            client, thread_store, message_callback, step_callback
         ),
     ) as stream:
         stream.until_done()
@@ -161,6 +161,7 @@ class SlackAssistantEventHandler(AssistantEventHandler):
             tool_call_handler(
                 run,
                 self.client,
+                self.thread_store,
                 self.message_callback,
                 self.step_callback,
             )
