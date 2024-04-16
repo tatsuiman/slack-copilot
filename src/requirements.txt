@@ -2,7 +2,7 @@ langchain
 langchain-community
 openai
 slack_sdk
-notion-util
+notion-util=0.0.2
 blockkit
 slack_bolt
 notion-client
