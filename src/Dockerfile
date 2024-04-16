@@ -17,7 +17,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY entrypoint.sh /
 COPY scripts /function
-RUN git clone https://github.com/tatsuiman/GPTs-Actions && \
+RUN git clone https://github.com/tatsuiman/GPTs-Actions -b v1.1.0 && \
     cp -r GPTs-Actions/src/functions/* /function/functions/
 WORKDIR /function
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
