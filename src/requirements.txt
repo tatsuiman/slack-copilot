@@ -1,8 +1,8 @@
 langchain
 langchain-community
-openai
+openai==v1.16.1
 slack_sdk
-notion-util=0.0.2
+notion-util==0.0.2
 blockkit
 slack_bolt
 notion-client

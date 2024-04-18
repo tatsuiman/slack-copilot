@@ -227,7 +227,7 @@ class AssistantAPIClient:
         try:
             assistant = self.client.beta.assistants.retrieve(assistant_id)
             current_assistant = assistant.model_dump()
-            file_ids = current_assistant["file_ids"]
+            file_ids = current_assistant.get("file_ids", [])
             self.client.beta.assistants.update(assistant_id, file_ids=[], tools=[])
             for file_id in file_ids:
                 logging.info(f"delete {file_id}")
@@ -277,7 +277,7 @@ class AssistantAPIClient:
     ):
         current_assistant = self.get_assistant(assistant_id)
         logging.info(f"current_assistant: {current_assistant}")
-        file_ids = current_assistant["file_ids"]
+        file_ids = current_assistant.get("file_ids", [])
         # Assistantを初期化しない場合はツールを追記する
         # 既存のツールの構成を更新する
         new_tools = tools if tools is not None else current_assistant["tools"]
